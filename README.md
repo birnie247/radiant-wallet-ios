@@ -198,6 +198,47 @@ Verified working toolchain:
 
 `minSdkVersion` is 26, `targetSdkVersion` is 36.
 
+## Installing on your own phone (sideload)
+
+Install the **signed release APK**, not the debug one: it is `debuggable=false`,
+so `adb run-as` and JDWP cannot reach the app's private data (your encrypted
+vault) over USB.
+
+```powershell
+cd android
+.\gradlew.bat assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+Then either install over USB:
+
+```powershell
+C:\Android\Sdk\platform-tools\adb.exe install -r `
+  "C:\Users\Sgt Birnie\Documents\Projects\rxd-wallet\android\app\build\outputs\apk\release\app-release.apk"
+```
+
+…or copy the `.apk` to the phone (USB, cloud, email) and tap it, allowing
+"install unknown apps" for whichever app opens it. Requires Android 8.0+
+(minSdk 26). Play Protect may show an "unknown developer" prompt — expected for
+anything not distributed through Play.
+
+### Updating it later — read this
+
+Android identifies an app by **package name + signing certificate**:
+
+| Situation | Result |
+| --- | --- |
+| Same keystore, higher `versionCode` | Updates in place; wallet data survives |
+| Different/new keystore | Must uninstall first → **local vault is erased** |
+| Reinstalling after uninstall | Vault erased; restore from your 12 words |
+
+So back up **both** `android/rxd-release.jks` and `android/keystore.properties`
+together, somewhere safe and offline. Those two files are what let you ship an
+update without wiping your own wallet. They are gitignored and must never be
+committed.
+
+Your real backup is the recovery phrase, not the APK.
+
 ## Testing
 
 ```bash
@@ -243,7 +284,7 @@ what is actually verified, not what was intended.
 | Finding | Status | What changed |
 | --- | --- | --- |
 | **HIGH-1** debuggable + WebView remote debugging | **Fixed** | `webContentsDebuggingEnabled: false` in the Capacitor config (verified present in the packaged `capacitor.config.json`), plus `WebView.setWebContentsDebuggingEnabled(false)` in `MainActivity`. Release builds are `debuggable=false` (absent from the manifest). |
-| **HIGH-2** debug signing key, v2-only | **Fixed, needs your key** | Release `signingConfig` read from `android/keystore.properties` (gitignored) with v1+v2+v3+v4 signing enabled, R8 minification and resource shrinking. With no keystore present, `assembleRelease` produces an **unsigned** APK (1.57 MB) instead of a debug-signed one. |
+| **HIGH-2** debug signing key, v2-only | **Fixed** | Release `signingConfig` read from `android/keystore.properties` (gitignored), R8 minification and resource shrinking. Signed with **APK Signature Scheme v2 + v3** (verified with `apksigner`; v1 is unnecessary at minSdk 26), signer `CN=Birnie`. With no keystore present, `assembleRelease` produces an **unsigned** APK instead of a debug-signed one. |
 | **MEDIUM-1** 6-char passphrase, PBKDF2 @ 310k | **Fixed** | 12-character minimum + trivial-pattern blocklist (`checkPassphrase`), PBKDF2-SHA256 raised to **600,000**, vault schema `v2`. Existing vaults still open and are **transparently re-encrypted** at the new cost on the next unlock. |
 | **MEDIUM-2** single untrusted Electrum server | **Partially fixed** | Bare-IP endpoint **removed** (an IP can't match a TLS identity); `verified` now gates connect order instead of being a label; endpoints tagged by `operator`; a cross-operator tip cross-check (`crossCheckTip`, bounded to 2 peers × 5s) warns in the UI on disagreement. **This is not SPV** — still no merkle-proof or proof-of-work verification. |
 | **LOW/MED-3** mnemonic resident in heap | **Improved** | Sending now requires passphrase re-authentication even in an unlocked session. JS still cannot zero memory. |
@@ -283,7 +324,7 @@ keyAlias=rxd
 keyPassword=...
 EOF
 
-cd android && ./gradlew assembleRelease   # → app-release.apk (signed, v1..v4)
+cd android && ./gradlew assembleRelease   # → app-release.apk (signed, v2+v3)
 ```
 
 Verified on the unsigned release build: manifest has **no** `debuggable`,
@@ -493,7 +534,7 @@ that only you can complete.
 | Feature graphic 1024×500 | `play/store/feature-graphic-1024x500.png` | generated |
 | Privacy policy | `docs/privacy-policy.html` | written — needs hosting |
 | targetSdk 36 / minSdk 26 | `android/variables.gradle` | meets Play's currency rule |
-| Non-debuggable, R8, v1–v4 signing | `android/app/build.gradle` | configured |
+| Non-debuggable, R8 shrinking, v2+v3 signing | `android/app/build.gradle` | verified with `apksigner` |
 
 ### 1. Create an upload key (do this yourself)
 
@@ -502,17 +543,18 @@ Google holds the actual app-signing key. Never let anyone else generate it, and
 back it up offline.
 
 ```powershell
-keytool -genkeypair -v -keystore android/rxd-upload.jks -storetype JKS `
-  -alias rxd-upload -keyalg RSA -keysize 4096 -validity 10000 `
+keytool -genkeypair -v -keystore android/rxd-release.jks -storetype PKCS12 `
+  -alias rxd -keyalg RSA -keysize 4096 -validity 10000 `
   -dname "CN=Birnie, O=Radiant Wallet, C=CA"
 ```
 
-Then create `android/keystore.properties` (gitignored):
+Then create `android/keystore.properties` (gitignored). `storeFile` is resolved
+**relative to `android/`**, so do not add `../`:
 
 ```properties
-storeFile=../rxd-upload.jks
+storeFile=rxd-release.jks
 storePassword=…
-keyAlias=rxd-upload
+keyAlias=rxd
 keyPassword=…
 ```
 

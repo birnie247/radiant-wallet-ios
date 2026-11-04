@@ -16,6 +16,9 @@ android/local.properties
 android/keystore.properties
 *.jks
 *.keystore
+
+# Standalone installable builds (signed APKs) are local artefacts.
+dist-android/
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
