@@ -1,22 +1,22 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "org.radiant.wallet",
+  // The bundle id must be unique across the App Store. The Android build
+  // (separate repo) uses org.radiant.wallet; keep a distinct id so the two
+  // apps can coexist. Verify this one is unclaimed in the developer portal
+  // before submitting.
+  appId: "org.radiant.wallet.ios",
   appName: "Radiant Wallet",
   webDir: "dist",
-  android: {
+  backgroundColor: "#000000",
+  ios: {
     // The wallet never loads remote content, so mixed content stays off.
     allowMixedContent: false,
-    backgroundColor: "#000000",
-    // HIGH-1: Capacitor's default is "debuggable builds only", but state it
-    // explicitly so a stray debug build cannot expose the JS context (and the
-    // decrypted mnemonic) to chrome://inspect over adb.
-    webContentsDebuggingEnabled: false,
   },
   server: {
-    // An https scheme gives the WebView a secure context, which the clipboard
-    // API and Web Crypto both require.
-    androidScheme: "https",
+    // An https scheme gives the WKWebView a secure context, which the
+    // clipboard API and Web Crypto both require.
+    iosScheme: "https",
   },
 };
 

@@ -1,0 +1,47 @@
+name: Build iOS app
+
+# Compiles the app — including the Swift plugins — for the iOS simulator on
+# every push, so the native side is gated the same way the web side is.
+# Distribution signing (App Store / Ad Hoc) stays a local step: it needs the
+# owner's certificates and profiles, which live outside the repo. See README.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + build web assets
+        run: npm run build
+
+      - name: Verify the browser crypto path
+        run: npm run check:browser
+
+      # Loads the real built bundle in headless Chrome (present on the macOS
+      # runner image). Catches WebView-only failures Node tests cannot see.
+      - name: Browser smoke test
+        run: npm run check:smoke
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      # Compiles the Swift plugins and the app. No signing: this is a
+      # compile gate, not a distribution build.
+      - name: Build for iOS Simulator
+        working-directory: ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build

@@ -4,25 +4,24 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Non-custodial Radiant (RXD) wallet for Android",
+  "description": "Non-custodial Radiant (RXD) wallet for iOS",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "sync": "npm run build && cap sync android",
-    "android": "cap open android",
+    "sync": "npm run build && cap sync ios",
+    "ios": "cap open ios",
     "check:browser": "vite build -c vite.test.config.ts && node dist-test/browser-path-check.js",
     "check:smoke": "node scripts/smoke-browser.mjs",
-    "icons": "node scripts/build-icons.mjs",
-    "store:assets": "node scripts/build-store-assets.mjs",
-    "release": "node scripts/release.mjs",
+    "icons": "node scripts/build-ios-icons.mjs",
+    "release": "node scripts/release-ios.mjs",
     "check:live": "node scripts/live-e2e.mjs",
     "probe": "node scripts/probe-servers.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@radiant-core/radiantjs": "^2.0.6",
     "@radiant-core/sdk": "^0.2.1",
@@ -30,7 +29,9 @@
     "js-sha512": "^0.8.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "rxd-biometric-vault": "file:plugins/biometric-vault",
+    "rxd-screen-security": "file:plugins/screen-security"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
@@ -39,6 +40,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "pngjs": "^7.0.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "ws": "^8.22.1"

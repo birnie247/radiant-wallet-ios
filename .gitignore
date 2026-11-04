@@ -5,23 +5,12 @@ node_modules/
 dist/
 dist-test/
 
-# Android build artifacts (the native project itself IS committed — it carries
-# the manifest hardening in AndroidManifest.xml and the SDK floor in
-# variables.gradle; only generated output is ignored)
-android/app/build/
-android/build/
-android/.gradle/
-android/local.properties
-# Release signing material must never be committed.
-android/keystore.properties
-*.jks
-*.keystore
-
-# Standalone installable builds (signed APKs) are local artefacts.
-dist-android/
-android/app/src/main/assets/public/
-android/app/src/main/assets/capacitor.config.json
-android/app/src/main/assets/capacitor.plugins.json
+# The native iOS project itself IS committed — it carries the Info.plist
+# hardening and the app-local plugins (ios/ + plugins/). Only generated
+# output is ignored (see ios/.gitignore for the platform-internal parts).
+ios/App/build/
+dist-ios/
+*.ipa
 
 # logs / scratch
 *.log

@@ -1,0 +1,11 @@
+{
+  "name": "rxd-screen-security",
+  "version": "1.0.0",
+  "description": "Screen-capture protection for Radiant Wallet (app-local Capacitor plugin, iOS)",
+  "license": "MIT",
+  "capacitor": {
+    "ios": {
+      "src": "src"
+    }
+  }
+}

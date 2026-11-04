@@ -6,7 +6,4 @@
 *.png binary
 *.jpg binary
 *.woff2 binary
-*.jks binary
-*.keystore binary
-*.apk binary
-*.aab binary
+*.ipa binary
