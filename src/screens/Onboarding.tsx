@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { HDWallet, type NetworkName } from "@radiant-core/sdk";
 import { saveVault, type WalletSecrets } from "../lib/vault";
+import { useSecureScreen } from "../lib/useSecureScreen";
 
 type Step = "welcome" | "create" | "restore" | "passphrase";
 
@@ -25,20 +26,32 @@ export default function Onboarding({
 
   const words = mnemonic ? mnemonic.split(" ") : [];
 
-  function startCreate() {
+  // Blocks screenshots and screen recording while a phrase is on screen.
+  const secure = useSecureScreen();
+
+  async function startCreate() {
     setError("");
+    // Await the flag BEFORE the seed is painted — an effect would run after
+    // paint and leave a capturable frame.
+    await secure.hold();
     setMnemonic(HDWallet.generateMnemonic());
     setSavedSeed(false);
     setStep("create");
   }
 
-  function startRestore() {
+  async function startRestore() {
     setError("");
+    await secure.hold();
     setRestoreInput("");
     setStep("restore");
   }
 
-  function acceptRestore() {
+  async function leaveSensitive(next: Step) {
+    await secure.release();
+    setStep(next);
+  }
+
+  async function acceptRestore() {
     const candidate = normaliseMnemonic(restoreInput);
     const count = candidate ? candidate.split(" ").length : 0;
     if (![12, 15, 18, 21, 24].includes(count)) {
@@ -57,7 +70,7 @@ export default function Onboarding({
     }
     setError("");
     setMnemonic(candidate);
-    setStep("passphrase");
+    await leaveSensitive("passphrase");
   }
 
   async function finish() {
@@ -110,10 +123,10 @@ export default function Onboarding({
             Your recovery phrase is the only way to restore this wallet. Nobody
             — not the developers, not any server — can recover it for you.
           </div>
-          <button className="btn primary" onClick={startCreate}>
+          <button className="btn primary" onClick={() => void startCreate()}>
             Create a new wallet
           </button>
-          <button className="btn" onClick={startRestore}>
+          <button className="btn" onClick={() => void startRestore()}>
             Restore from recovery phrase
           </button>
         </div>
@@ -125,7 +138,10 @@ export default function Onboarding({
     return (
       <div className="app">
         <div className="topbar">
-          <button className="icon-btn" onClick={() => setStep("welcome")}>
+          <button
+            className="icon-btn"
+            onClick={() => void leaveSensitive("welcome")}
+          >
             ←
           </button>
           <h1>Back up your wallet</h1>
@@ -160,7 +176,7 @@ export default function Onboarding({
           <button
             className="btn primary"
             disabled={!savedSeed}
-            onClick={() => setStep("passphrase")}
+            onClick={() => void leaveSensitive("passphrase")}
           >
             Continue
           </button>
@@ -173,7 +189,10 @@ export default function Onboarding({
     return (
       <div className="app">
         <div className="topbar">
-          <button className="icon-btn" onClick={() => setStep("welcome")}>
+          <button
+            className="icon-btn"
+            onClick={() => void leaveSensitive("welcome")}
+          >
             ←
           </button>
           <h1>Restore wallet</h1>
@@ -198,7 +217,7 @@ export default function Onboarding({
           </div>
           <NetworkPicker network={network} setNetwork={setNetwork} />
           {error && <div className="error">{error}</div>}
-          <button className="btn primary" onClick={acceptRestore}>
+          <button className="btn primary" onClick={() => void acceptRestore()}>
             Continue
           </button>
         </div>

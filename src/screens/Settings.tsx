@@ -8,6 +8,8 @@ import {
   type BiometricStatus,
 } from "../lib/biometric";
 import { formatRxd, shortId } from "../lib/money";
+import { useSecureScreen } from "../lib/useSecureScreen";
+import { screenSecurityAvailable } from "../lib/screenSecurity";
 import type { Nav } from "../types";
 
 export default function Settings({ nav }: { nav: Nav }) {
@@ -24,6 +26,22 @@ export default function Settings({ nav }: { nav: Nav }) {
   const [bio, setBio] = useState<BiometricStatus | null>(null);
   const [bioBusy, setBioBusy] = useState(false);
   const [bioError, setBioError] = useState("");
+
+  // Screenshots / recording are blocked while the phrase sheet is open.
+  const secure = useSecureScreen();
+
+  async function openReveal() {
+    await secure.hold();
+    setRevealOpen(true);
+  }
+
+  async function closeReveal() {
+    await secure.release();
+    setRevealOpen(false);
+    setRevealed("");
+    setRevealError("");
+    setPassphrase("");
+  }
 
   useEffect(() => {
     let alive = true;
@@ -165,7 +183,7 @@ export default function Settings({ nav }: { nav: Nav }) {
           <button className="btn" onClick={nav.lock}>
             Lock wallet now
           </button>
-          <button className="btn" onClick={() => setRevealOpen(true)}>
+          <button className="btn" onClick={() => void openReveal()}>
             Show recovery phrase
           </button>
 
@@ -264,12 +282,7 @@ export default function Settings({ nav }: { nav: Nav }) {
           setPassphrase={setPassphrase}
           error={revealError}
           onReveal={reveal}
-          onClose={() => {
-            setRevealOpen(false);
-            setRevealed("");
-            setRevealError("");
-            setPassphrase("");
-          }}
+          onClose={() => void closeReveal()}
         />
       )}
     </div>
@@ -314,6 +327,12 @@ function RevealSheet({
               Anyone with these words can spend your RXD. Never photograph them
               or type them into a website.
             </div>
+            {screenSecurityAvailable() && (
+              <div className="hint">
+                Screenshots and screen recording are blocked while this phrase is
+                on screen.
+              </div>
+            )}
             <button className="btn" onClick={onClose}>
               Close
             </button>

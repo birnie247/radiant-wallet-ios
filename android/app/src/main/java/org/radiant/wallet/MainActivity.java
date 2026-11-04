@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // App-local plugins must be registered BEFORE the bridge is created,
         // otherwise the JS side cannot find them.
         registerPlugin(BiometricVaultPlugin.class);
+        registerPlugin(ScreenSecurityPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -272,6 +272,33 @@ if (process.argv.includes("--live")) {
   );
 }
 
+// 7. Screen-security holder counting.
+//    The dangerous failure mode is clearing FLAG_SECURE while another component
+//    still shows a seed, so the counter is worth asserting explicitly.
+{
+  const {
+    acquireSecureScreen,
+    releaseSecureScreen,
+    secureScreenHolders,
+    screenSecurityAvailable,
+  } = await import("../src/lib/screenSecurity");
+
+  check("screen security is inert off-device", screenSecurityAvailable() === false);
+
+  await acquireSecureScreen();
+  await acquireSecureScreen();
+  check("two overlapping holders", secureScreenHolders() === 2);
+
+  await releaseSecureScreen();
+  check("flag stays raised with one holder left", secureScreenHolders() === 1);
+
+  await releaseSecureScreen();
+  check("cleared only after the last release", secureScreenHolders() === 0);
+
+  await releaseSecureScreen();
+  check("counter never goes negative", secureScreenHolders() === 0);
+}
+
 console.log(`\n${failures === 0 ? "ALL BROWSER-PATH CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);
 

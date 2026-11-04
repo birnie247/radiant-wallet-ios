@@ -29,6 +29,7 @@ behaviour is the ecosystem's own proven code rather than a re-implementation.
 | QR code display for receiving | ✅ implemented |
 | Transaction history with confirmation counts | ✅ verified against synthetic txs |
 | Biometric unlock (Android Keystore + BiometricPrompt) | ⚠️ implemented, not device-tested |
+| Recovery phrase blocks screenshots & screen recording | ⚠️ implemented (`FLAG_SECURE`), not device-tested |
 | **QR scanning, Glyph tokens, WAVE names, price** | ❌ not yet |
 
 > **Honest caveat:** no transaction has been broadcast to mainnet from this code
@@ -90,6 +91,8 @@ src/
     wallet.ts     HD discovery, balance aggregation, ref-safe payment building
     vault.ts      AES-256-GCM + PBKDF2 encrypted seed storage
     biometric.ts  JS bridge to the native Keystore/BiometricPrompt plugin
+    screenSecurity.ts  ref-counted FLAG_SECURE toggling
+    useSecureScreen.ts React hook with automatic release on unmount
     history.ts    confirmation-annotated transaction history
     servers.ts    ElectrumX endpoint pool (WebSocket) + preferred server
     money.ts      BigInt photon/RXD conversion (never float)
@@ -105,7 +108,8 @@ src/
   shims/          browser replacements for Node internals (see below)
 android/app/src/main/java/org/radiant/wallet/
   BiometricVaultPlugin.java   AndroidKeyStore + BiometricPrompt (native)
-  MainActivity.java           registers the plugin before the bridge starts
+  ScreenSecurityPlugin.java   WindowManager FLAG_SECURE (native)
+  MainActivity.java           registers both plugins before the bridge starts
 scripts/
   browser-path-check.ts  runtime proof: crypto path, signing, history logic
   probe-tx-parse.mjs     pins down radiantjs input/output field semantics
@@ -212,8 +216,12 @@ ever loaded into the WebView.
    fails safe — biometric errors fall back to the passphrase.
 2. **Keys are held in JS memory** while unlocked (WebView), not in native
    storage. Same class of exposure as any JavaScript wallet.
-3. **No screenshot protection** (`FLAG_SECURE`) yet, so the recovery-phrase
-   screen can be screen-recorded.
+3. **Screenshot blocking is framework-enforced only.** `FLAG_SECURE` is raised
+   while a recovery phrase is visible (create-backup, restore-entry, and the
+   reveal sheet), so ordinary screens like Receive stay screenshot-able by
+   design. It defeats Android screenshots and MediaProjection recordings and
+   blanks the Recents thumbnail, but it cannot stop a rooted device or someone
+   photographing the phone with another camera.
 4. **Change goes to one address** (the first unused change-chain address) rather
    than a fresh change address per transaction. It is watched by the scanner, so
    funds are never stranded, but it is weaker privacy than ideal.
@@ -246,6 +254,34 @@ additional door, never the only one. Deleting the wallet also deletes the
 Keystore key, and a wrong/failed biometric leaves you on the unlock screen with
 the passphrase available.
 
+## Screen privacy (anti-screen-recording)
+
+`ScreenSecurityPlugin.java` toggles `WindowManager.LayoutParams.FLAG_SECURE` on
+the app window, which makes Android refuse screenshots, exclude the window from
+MediaProjection screen recordings and casting, and blank the app in the Recents
+thumbnail.
+
+It is **selective**, not app-wide — the flag is raised only while a recovery
+phrase is on screen:
+
+- creating a wallet (the 12-word backup) and entering a phrase to restore,
+- the "Show recovery phrase" sheet in Settings (including its passphrase field).
+
+So you can still screenshot a receive address or QR code, which is a normal
+thing to want.
+
+Two details that make this actually hold:
+
+1. **Raised before paint.** The handlers `await hold()` *before* the seed is set
+   in state. Doing it in a `useEffect` would run after paint and leave a
+   capturable frame.
+2. **Reference counted.** `FLAG_SECURE` is window-global, so a naive on/off from
+   two components would let the second release clear the flag while the first
+   still shows a seed. `src/lib/screenSecurity.ts` only clears it when the last
+   holder releases, and each component holds at most one reference that is
+   auto-released on unmount. The safe failure direction (stuck secure) is
+   preferred over the dangerous one.
+
 ## Transaction confirmations
 
 `src/lib/history.ts` builds a confirmation-annotated history using only standard
@@ -277,7 +313,7 @@ This app only ever asks for your *passphrase*, which is local to this device.
   totals), no QR *scanner* (a `BarcodeDetector` hook fits naturally in
   `Receive.tsx`/`Send.tsx`).
 
-**Roadmap:** `FLAG_SECURE` → QR scanning → per-transaction change addresses →
+**Roadmap:** QR scanning → per-transaction change addresses →
 Glyph FT send/receive → fiat price.
 
 ---
