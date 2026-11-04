@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+dist-test/
+
+# Android build artifacts (the native project itself IS committed — it carries
+# the manifest hardening in AndroidManifest.xml and the SDK floor in
+# variables.gradle; only generated output is ignored)
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# logs / scratch
+*.log
+build-*.txt
+ssr-*.txt
+check-*.txt
+cap-*.txt
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

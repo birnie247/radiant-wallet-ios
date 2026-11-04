@@ -1,0 +1,40 @@
+{
+  "name": "rxd-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Non-custodial Radiant (RXD) wallet for Android",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sync": "npm run build && cap sync android",
+    "android": "cap open android",
+    "check:browser": "vite build -c vite.test.config.ts && node dist-test/browser-path-check.js",
+    "check:live": "node scripts/live-e2e.mjs",
+    "probe": "node scripts/probe-servers.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@radiant-core/radiantjs": "^2.0.6",
+    "@radiant-core/sdk": "^0.2.1",
+    "buffer": "^6.0.3",
+    "js-sha512": "^0.8.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "ws": "^8.22.1"
+  }
+}

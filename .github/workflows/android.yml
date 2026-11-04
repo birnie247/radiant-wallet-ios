@@ -1,0 +1,52 @@
+name: Build Android APK
+
+# Builds a debug APK in the cloud so the APK can be produced without installing
+# Android Studio / the Android SDK locally (this repo was developed without one).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # Capacitor 8 / AGP 8.7+ need a modern JDK.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + build web assets
+        run: npm run build
+
+      - name: Verify the browser crypto path
+        run: npm run check:browser
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rxd-wallet-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
