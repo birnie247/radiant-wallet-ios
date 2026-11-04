@@ -646,6 +646,62 @@ in the Console rather than re-uploading.
 - **Play does remove crypto wallets** that fail the financial declaration or
   mislead users. Keep the listing literal about what the app does.
 
+## Keeping the app updated
+
+There is no store to auto-update from, so an update is something you run. It's
+one command:
+
+```powershell
+npm run release
+```
+
+That builds the web bundle, syncs Capacitor, builds a **signed** release APK,
+copies it to `dist-android/radiant-wallet-<version>.apk`, and verifies the
+signature with `apksigner` before telling you it's done.
+
+### Shipping a change
+
+```powershell
+# 1. edit code
+npm version patch        # 1.0.0 -> 1.0.1  (package.json is the ONLY version source)
+npm run release
+# 2. install over the top
+C:\Android\Sdk\platform-tools\adb.exe install -r `
+  "dist-android\radiant-wallet-1.0.1.apk"
+```
+
+`versionCode` is derived from `package.json` (`major*10000+minor*100+patch`), so
+it always increases — Android refuses to install a lower one.
+
+Verified end to end: installing **1.0.0 (versionCode 10000)** over
+**1.0 (versionCode 1)** left `firstInstallTime` unchanged and only moved
+`lastUpdateTime` — a true in-place update, so the encrypted vault survives.
+
+### Three rules that matter
+
+1. **Never lose `android/rxd-release.jks`** (and its `keystore.properties`). A
+   different key forces an uninstall, which erases the vault.
+2. **Bump the version every time** (`npm version patch`). 
+3. **Restore from your 12 words**, not from the APK, if anything goes wrong.
+
+### What updates itself, and what doesn't
+
+| Component | How it stays current |
+| --- | --- |
+| **Android System WebView** | Updates automatically through the Play Store. Most security fixes for a Capacitor app arrive here — you ship nothing. |
+| **Your app code** | Only when you run `npm run release`. |
+| **npm dependencies** | `npm outdated` to review, then re-run `npm run check:browser` and `npm run check:smoke` after upgrading. |
+| **Electrum servers** | Do **not** self-heal. Endpoints die (two already have). Run `npm run probe` every few months; if the verified ones stop answering, edit `src/lib/servers.ts`. |
+| **Android SDK / AGP** | Only when you choose to upgrade them; the wrapper pins Gradle. |
+
+### If a release build misbehaves
+
+Release builds are minified (R8) and WebView debugging is deliberately disabled,
+so there's no console to read. Diagnose with the debug build instead — but note
+`webContentsDebuggingEnabled` is off there too by design; to inspect it, set it
+to `true` in `capacitor.config.ts` **temporarily**, run `npx cap run android`,
+read the error in `chrome://inspect`, then set it back before shipping.
+
 ## Licence
 
 **This project is MIT licensed** — see [LICENSE](LICENSE). Copyright (c) 2026

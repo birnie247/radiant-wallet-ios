@@ -27,8 +27,14 @@ android {
         applicationId "org.radiant.wallet"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Single source of truth for the version: package.json.
+        // versionCode is derived from the semver so it always increases:
+        //   1.2.3 -> 10203
+        // Bump with `npm version patch|minor|major` and rebuild.
+        def pkg = new groovy.json.JsonSlurper().parseText(rootProject.file('../package.json').text)
+        def versionParts = pkg.version.tokenize('.').collect { it as int }
+        versionName pkg.version
+        versionCode versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
