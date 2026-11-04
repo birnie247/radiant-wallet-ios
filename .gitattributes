@@ -1,0 +1,12 @@
+# Normalise line endings in the index so build tools that emit CRLF on Windows
+# (Capacitor's `cap sync`, for example) don't leave the tree permanently "dirty".
+* text=auto
+
+# Binary assets: never attempt text conversion.
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.jks binary
+*.keystore binary
+*.apk binary
+*.aab binary
