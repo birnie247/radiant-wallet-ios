@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatRxd, parseRxd, shortId } from "../lib/money";
+import { unlockVault } from "../lib/vault";
 import {
   FAST_FEE_RATE,
   MIN_FEE_RATE,
@@ -48,10 +49,20 @@ export default function Send({ nav }: { nav: Nav }) {
     }
   }
 
-  async function confirm() {
+  async function confirm(passphrase: string) {
     if (!plan) return;
     setError("");
     setWorking(true);
+    try {
+      // Re-authenticate before moving funds (security report LOW/MED-3): an
+      // unlocked session living in the JS heap must not, on its own, be
+      // sufficient to authorise a payment.
+      await unlockVault(passphrase);
+    } catch (e) {
+      setError((e as Error).message);
+      setWorking(false);
+      return;
+    }
     try {
       const sent = await broadcast(session.client, plan);
       setTxid(sent);
@@ -245,9 +256,11 @@ function ReviewSheet({
   working: boolean;
   error: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (passphrase: string) => void;
 }) {
   const total = amount + plan.fee;
+  // Send-time re-authentication (security report LOW/MED-3).
+  const [passphrase, setPassphrase] = useState("");
   return (
     <div className="sheet-backdrop" onClick={onCancel}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -283,6 +296,22 @@ function ReviewSheet({
 
         {error && <div className="error">{error}</div>}
 
+        <div className="field">
+          <label>Confirm passphrase</label>
+          <input
+            type="password"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            placeholder="Re-enter to authorise this payment"
+            autoCapitalize="none"
+            autoCorrect="off"
+          />
+          <div className="hint">
+            Required even though the wallet is unlocked — this is what stops a
+            hijacked session from spending on your behalf.
+          </div>
+        </div>
+
         <div className="hint">
           Signed on this device with SIGHASH_ALL|FORKID. A broadcast transaction
           cannot be undone.
@@ -292,7 +321,11 @@ function ReviewSheet({
           <button className="btn ghost" onClick={onCancel} disabled={working}>
             Cancel
           </button>
-          <button className="btn primary" onClick={onConfirm} disabled={working}>
+          <button
+            className="btn primary"
+            onClick={() => onConfirm(passphrase)}
+            disabled={working || passphrase.length === 0}
+          >
             {working ? "Sending…" : "Confirm & send"}
           </button>
         </div>

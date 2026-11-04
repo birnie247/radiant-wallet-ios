@@ -187,6 +187,20 @@ export default function Settings({ nav }: { nav: Nav }) {
             Show recovery phrase
           </button>
 
+          <button
+            className="btn"
+            onClick={() => nav.setAllowScreenshots(!nav.allowScreenshots)}
+          >
+            {nav.allowScreenshots
+              ? "Block screenshots again"
+              : "Allow screenshots (QR sharing)"}
+          </button>
+          <div className="hint">
+            {nav.allowScreenshots
+              ? "Screenshots are allowed app-wide, but the recovery phrase stays blocked."
+              : "Screenshots and screen recording are blocked app-wide. Turn this on only when you need to share a receive address."}
+          </div>
+
           {bio?.platform === true && bio.available ? (
             <button
               className="btn"

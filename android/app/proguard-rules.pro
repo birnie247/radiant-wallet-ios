@@ -1,21 +1,23 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Radiant Wallet — R8/ProGuard rules (release builds)
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Capacitor's bridge looks plugins up by reflection from the @CapacitorPlugin
+# annotation, so R8 must not rename or remove them. Keep our own plugins
+# explicitly rather than relying solely on the AAR's consumer rules: if these
+# are stripped, biometric unlock and FLAG_SECURE silently stop existing at
+# runtime (the JS call rejects with "not implemented").
+-keep class org.radiant.wallet.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Any Capacitor plugin and its @PluginMethod entry points.
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.PluginMethod <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Annotations/attributes needed for that reflective lookup.
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+
+# Keep line numbers so crash reports stay actionable (the app contains no
+# secrets in class/method names).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+

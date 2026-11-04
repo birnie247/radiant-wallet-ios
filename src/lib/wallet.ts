@@ -28,7 +28,7 @@ import {
   type NetworkName,
   type Utxo,
 } from "@radiant-core/sdk";
-import { candidateServers } from "./servers";
+import { candidateServers, findServer, independentServers } from "./servers";
 
 export const GAP_LIMIT = 20;
 export const HARD_ADDRESS_CAP = 200;
@@ -114,6 +114,10 @@ function withTimeout<T>(
 export interface Connection {
   client: ElectrumClient;
   endpoint: string;
+  /** True when this endpoint is one of the curated, handshake-verified nodes. */
+  verified: boolean;
+  /** Administrator grouping, used for independent cross-checks. */
+  operator: string;
 }
 
 /**
@@ -141,7 +145,13 @@ export async function connect(
         8_000,
         `handshake ${url}`,
       );
-      return { client, endpoint: url };
+      const entry = findServer(network, url);
+      return {
+        client,
+        endpoint: url,
+        verified: entry?.verified ?? false,
+        operator: entry?.operator ?? "unknown",
+      };
     } catch (err) {
       try {
         client.close();
@@ -152,6 +162,59 @@ export async function connect(
     }
   }
   throw new Error(`Could not reach a Radiant server.\n${errors.join("\n")}`);
+}
+
+export interface TipCheck {
+  endpoint: string;
+  operator: string;
+  height: number;
+}
+
+/** How far apart two servers' tips may be before we call it a disagreement. */
+export const MAX_TIP_DRIFT = 2;
+
+/**
+ * Ask a *different operator's* server for its chain tip.
+ *
+ * Security report MEDIUM-2: the app otherwise trusts a single Electrum server
+ * for balances, history and confirmation counts. A lying or badly stale server
+ * can therefore fake confirmations. This does not deliver SPV (no merkle/PoW
+ * verification) but it does detect gross disagreement between independent
+ * operators, which is the cheap 80% of the value.
+ *
+ * Returns null when no independent server is reachable.
+ */
+export async function crossCheckTip(
+  network: NetworkName,
+  primaryEndpoint: string,
+  timeoutMs = 5_000,
+): Promise<TipCheck | null> {
+  // Bounded: at most two peers, each with a short timeout. This runs on the
+  // refresh path, so a dead peer must never cost the user more than ~10s.
+  for (const entry of independentServers(network, primaryEndpoint).slice(0, 2)) {
+    const client = new ElectrumClient({ endpoint: entry.url, reconnect: false });
+    try {
+      await withTimeout(client.connect(), timeoutMs, `connect ${entry.url}`);
+      const tip = await withTimeout(
+        client.request<{ height: number }>("blockchain.headers.subscribe"),
+        timeoutMs,
+        `tip ${entry.url}`,
+      );
+      const height = Number(tip?.height);
+      if (Number.isFinite(height) && height > 0) {
+        return { endpoint: entry.url, operator: entry.operator, height };
+      }
+    } catch {
+      /* try the next independent operator */
+    } finally {
+      try {
+        client.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return null;
 }
 
 /**

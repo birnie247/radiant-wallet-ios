@@ -1,4 +1,5 @@
 import { formatRxd, shortId } from "../lib/money";
+import { MAX_TIP_DRIFT } from "../lib/wallet";
 import ActivityList from "../components/ActivityList";
 import type { Nav } from "../types";
 
@@ -68,6 +69,15 @@ export default function Home({ nav }: { nav: Nav }) {
             Receive
           </button>
         </div>
+
+        {nav.tipDrift !== null && nav.tipDrift > MAX_TIP_DRIFT && (
+          <div className="notice">
+            <strong>Server disagreement.</strong> This server's chain tip is{" "}
+            {nav.tipDrift} blocks away from an independent operator. Confirmation
+            counts shown here may be unreliable — switch servers in Settings
+            before trusting them.
+          </div>
+        )}
 
         {scan.tokenUtxoCount > 0 && (
           <div className="notice">

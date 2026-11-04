@@ -5,15 +5,35 @@
  * user's passphrase with PBKDF2-SHA256. Only the ciphertext is persisted, and
  * the plaintext exists in memory solely while the wallet is unlocked.
  *
+ * Policy (security report MEDIUM-1 / L4):
+ *   • 600,000 PBKDF2-SHA256 iterations — OWASP's current PBKDF2-HMAC-SHA256
+ *     floor (was 310k, roughly half that).
+ *   • 12-character minimum passphrase for new wallets, plus a trivially-weak
+ *     check. Short passphrases are the weakest link once a blob is exfiltrated:
+ *     the KDF cannot rescue a 6-character secret.
+ *   • The KDF parameters are stored with the vault and *validated on read*
+ *     (bounded range) rather than trusted blindly, and vaults written under the
+ *     old policy are transparently re-encrypted at the current cost on the next
+ *     successful unlock — the user keeps their passphrase.
+ *
  * Threat model note: this protects a lost/stolen device backup and casual
  * filesystem inspection. It does NOT protect against a rooted device with a
- * memory dumper. See README "Security model" for the full discussion and the
- * planned Android Keystore hardening.
+ * memory dumper. See README "Security model".
  */
 import type { NetworkName } from "@radiant-core/sdk";
 
 const STORAGE_KEY = "rxd.wallet.vault.v1";
-const KDF_ITERATIONS = 310_000;
+
+/** Current KDF cost. Bump VAULT_SCHEMA when the parameters change. */
+const KDF_ITERATIONS = 600_000;
+const KDF_ALGORITHM = "PBKDF2-SHA256";
+const VAULT_SCHEMA = 2;
+
+/** Refuse absurd stored parameters (tampering / denial of service). */
+const MIN_ITERATIONS = 100_000;
+const MAX_ITERATIONS = 5_000_000;
+
+export const MIN_PASSPHRASE_LENGTH = 12;
 
 export interface WalletSecrets {
   mnemonic: string;
@@ -25,8 +45,9 @@ export interface WalletSecrets {
 }
 
 export interface StoredVault {
-  v: 1;
-  kdf: "PBKDF2-SHA256";
+  /** 1 = original (310k, 6-char floor); 2 = current policy. */
+  v: number;
+  kdf: typeof KDF_ALGORITHM;
   iterations: number;
   salt: string;
   iv: string;
@@ -75,31 +96,74 @@ async function deriveKey(
   );
 }
 
+/**
+ * Passphrase policy for NEW wallets.
+ * Returns a user-facing error, or null when acceptable.
+ */
+export function checkPassphrase(passphrase: string): string | null {
+  if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
+    return `Use at least ${MIN_PASSPHRASE_LENGTH} characters — the passphrase is the only thing protecting your recovery phrase.`;
+  }
+  if (new Set(passphrase).size < 4) {
+    return "That passphrase is too repetitive — use something less predictable.";
+  }
+  const lower = passphrase.toLowerCase();
+  const blocked = ["password", "123456789012", "qwertyuiopas", "letmein123456"];
+  if (blocked.some((b) => lower.includes(b))) {
+    return "That passphrase is too common. Pick something unique.";
+  }
+  return null;
+}
+
 export function hasVault(): boolean {
   return localStorage.getItem(STORAGE_KEY) !== null;
 }
 
-export function readVaultMeta(): { createdAt: number } | null {
+function readStored(): StoredVault | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as StoredVault;
-    return { createdAt: parsed.createdAt };
+    if (!parsed?.ct || !parsed?.salt || !parsed?.iv) return null;
+    return parsed;
   } catch {
     return null;
   }
 }
 
-export async function saveVault(
+export function readVaultMeta(): {
+  createdAt: number;
+  iterations: number;
+  schema: number;
+} | null {
+  const stored = readStored();
+  if (!stored) return null;
+  return {
+    createdAt: stored.createdAt,
+    iterations: stored.iterations,
+    schema: stored.v ?? 1,
+  };
+}
+
+/** True when the stored vault predates the current KDF policy. */
+export function needsKdfUpgrade(): boolean {
+  const stored = readStored();
+  return !!stored && (stored.v ?? 1) < VAULT_SCHEMA;
+}
+
+/**
+ * Encrypt + persist. No policy check: this is also the re-encryption path for
+ * vaults created under an older (weaker) policy, whose passphrase must keep
+ * working even if it would not satisfy today's minimum length.
+ */
+async function writeVault(
   passphrase: string,
   secrets: WalletSecrets,
+  iterations: number,
 ): Promise<void> {
-  if (passphrase.length < 6) {
-    throw new Error("Passphrase must be at least 6 characters");
-  }
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(passphrase, salt, KDF_ITERATIONS);
+  const key = await deriveKey(passphrase, salt, iterations);
   const ct = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: bs(iv) },
     key,
@@ -107,9 +171,9 @@ export async function saveVault(
   );
 
   const stored: StoredVault = {
-    v: 1,
-    kdf: "PBKDF2-SHA256",
-    iterations: KDF_ITERATIONS,
+    v: VAULT_SCHEMA,
+    kdf: KDF_ALGORITHM,
+    iterations,
     salt: toB64(salt),
     iv: toB64(iv),
     ct: toB64(new Uint8Array(ct)),
@@ -118,22 +182,32 @@ export async function saveVault(
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 }
 
-export async function unlockVault(passphrase: string): Promise<WalletSecrets> {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) throw new Error("No wallet on this device");
+/** Create a NEW vault, enforcing the current passphrase policy. */
+export async function saveVault(
+  passphrase: string,
+  secrets: WalletSecrets,
+): Promise<void> {
+  const problem = checkPassphrase(passphrase);
+  if (problem) throw new Error(problem);
+  await writeVault(passphrase, secrets, KDF_ITERATIONS);
+}
 
-  let stored: StoredVault;
-  try {
-    stored = JSON.parse(raw) as StoredVault;
-  } catch {
-    throw new Error("Wallet data is corrupted");
+export async function unlockVault(passphrase: string): Promise<WalletSecrets> {
+  const stored = readStored();
+  if (!stored) throw new Error("No wallet on this device");
+
+  // Never trust stored KDF parameters blindly: reject out-of-range values
+  // rather than letting a tampered blob force an absurd or trivial work factor.
+  const iterations = Number(stored.iterations);
+  if (
+    !Number.isFinite(iterations) ||
+    iterations < MIN_ITERATIONS ||
+    iterations > MAX_ITERATIONS
+  ) {
+    throw new Error("Wallet data is corrupted (invalid KDF parameters)");
   }
 
-  const key = await deriveKey(
-    passphrase,
-    fromB64(stored.salt),
-    stored.iterations,
-  );
+  const key = await deriveKey(passphrase, fromB64(stored.salt), iterations);
   let plain: ArrayBuffer;
   try {
     plain = await crypto.subtle.decrypt(
@@ -148,6 +222,17 @@ export async function unlockVault(passphrase: string): Promise<WalletSecrets> {
 
   const secrets = JSON.parse(decoder.decode(plain)) as WalletSecrets;
   if (!secrets?.mnemonic) throw new Error("Wallet data is corrupted");
+
+  // Transparent KDF upgrade: same passphrase, current cost. Best effort — a
+  // storage failure must not lock the user out of their own wallet.
+  if ((stored.v ?? 1) < VAULT_SCHEMA) {
+    try {
+      await writeVault(passphrase, secrets, KDF_ITERATIONS);
+    } catch {
+      /* keep the old vault; it still opens */
+    }
+  }
+
   return secrets;
 }
 
@@ -158,10 +243,11 @@ export async function updateVaultSettings(
 ): Promise<WalletSecrets> {
   const current = await unlockVault(passphrase);
   const next = { ...current, ...patch };
-  await saveVault(passphrase, next);
+  await writeVault(passphrase, next, KDF_ITERATIONS);
   return next;
 }
 
 export function deleteVault(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
+

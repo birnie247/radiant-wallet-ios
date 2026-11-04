@@ -1,5 +1,25 @@
 apply plugin: 'com.android.application'
 
+/**
+ * Release signing.
+ *
+ * Create android/keystore.properties (gitignored) next to this file:
+ *
+ *   storeFile=../rxd-release.jks
+ *   storePassword=...
+ *   keyAlias=rxd
+ *   keyPassword=...
+ *
+ * With no keystore present, `assembleRelease` still runs R8/minification and
+ * produces app-release-unsigned.apk — useful for verifying the release build
+ * without shipping anything signed by a debug key (HIGH-2).
+ */
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace = "org.radiant.wallet"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +36,40 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    buildTypes {
+    signingConfigs {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+            // HIGH-2: sign with apex (v2), v3 (key rotation) and v4 alongside v1
+            // so verifiers on every Android version can validate the artifact.
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+            enableV4Signing true
+        }
+    }
+    buildTypes {
+        debug {
+            // The debug keystore is public; never treat a debug build as
+            // identity. WebView debugging is disabled at runtime in
+            // MainActivity + capacitor.config.ts regardless.
+            debuggable true
+        }
+        release {
+            debuggable false
+            jniDebuggable false
+            // Shrink + obfuscate: smaller artifact and less build metadata
+            // (finding L3) left in the shipped bytecode.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

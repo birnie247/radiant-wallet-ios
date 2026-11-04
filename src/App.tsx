@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HDWallet } from "@radiant-core/sdk";
 import { hasVault, unlockVault, type WalletSecrets } from "./lib/vault";
-import { connect, scanWallet } from "./lib/wallet";
+import { connect, crossCheckTip, scanWallet } from "./lib/wallet";
 import { getPreferredServer } from "./lib/servers";
 import { loadHistory, type HistoryEntry } from "./lib/history";
 import { unlockWithBiometric } from "./lib/biometric";
+import {
+  acquireSecureScreen,
+  releaseSecureScreen,
+} from "./lib/screenSecurity";
 import type { Screen, Session } from "./types";
 import Onboarding from "./screens/Onboarding";
 import Unlock from "./screens/Unlock";
@@ -16,6 +20,9 @@ import Settings from "./screens/Settings";
 /** Lock the wallet automatically after this long in the background. */
 const BACKGROUND_LOCK_MS = 60_000;
 
+/** L1: screenshots are blocked app-wide unless the user opts out. */
+const ALLOW_SCREENSHOTS_KEY = "rxd.security.allowScreenshots";
+
 export default function App() {
   const [booted, setBooted] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
@@ -24,6 +31,23 @@ export default function App() {
   const [busy, setBusy] = useState("");
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [historyTotal, setHistoryTotal] = useState(0);
+  const [tipDrift, setTipDrift] = useState<number | null>(null);
+  const [allowScreenshots, setAllowScreenshotsState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ALLOW_SCREENSHOTS_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const setAllowScreenshots = useCallback((allow: boolean) => {
+    setAllowScreenshotsState(allow);
+    try {
+      localStorage.setItem(ALLOW_SCREENSHOTS_KEY, allow ? "1" : "0");
+    } catch {
+      /* ignore storage failure */
+    }
+  }, []);
 
   const sessionRef = useRef<Session | null>(null);
   sessionRef.current = session;
@@ -40,12 +64,20 @@ export default function App() {
    */
   const hydrateHistory = useCallback(async (next: Session) => {
     setHistory(null);
+    setTipDrift(null);
     try {
       const result = await loadHistory(next.client, next.scan.addresses, {
         limit: 25,
       });
       setHistory(result.entries);
       setHistoryTotal(result.totalKnown);
+
+      // MEDIUM-2: confirm the primary server's tip against an independent
+      // operator. Best effort — a wallet must stay usable if it fails.
+      const other = await crossCheckTip(next.secrets.network, next.endpoint);
+      if (other) {
+        setTipDrift(Math.abs(result.tipHeight - other.height));
+      }
     } catch {
       setHistory([]);
       setHistoryTotal(0);
@@ -153,6 +185,17 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [lock]);
 
+  // L1: block screenshots/screen recording app-wide, not only on seed screens.
+  // The refcount in screenSecurity.ts means seed screens stay protected even
+  // when the user has opted out here (for sharing a receive QR, say).
+  useEffect(() => {
+    if (allowScreenshots) return;
+    void acquireSecureScreen();
+    return () => {
+      void releaseSecureScreen();
+    };
+  }, [allowScreenshots]);
+
   // Tear the socket down on unmount.
   useEffect(() => {
     return () => {
@@ -200,6 +243,9 @@ export default function App() {
     busy,
     history,
     historyTotal,
+    tipDrift,
+    allowScreenshots,
+    setAllowScreenshots,
   };
 
   return (

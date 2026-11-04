@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { HDWallet, type NetworkName } from "@radiant-core/sdk";
-import { saveVault, type WalletSecrets } from "../lib/vault";
+import { checkPassphrase, saveVault, type WalletSecrets } from "../lib/vault";
 import { useSecureScreen } from "../lib/useSecureScreen";
 
 type Step = "welcome" | "create" | "restore" | "passphrase";
@@ -75,8 +75,10 @@ export default function Onboarding({
 
   async function finish() {
     setError("");
-    if (passphrase.length < 6) {
-      setError("Use at least 6 characters for the passphrase.");
+    // Policy lives in the vault module so creation and unlock can never drift.
+    const policyError = checkPassphrase(passphrase);
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (passphrase !== repeat) {
@@ -249,7 +251,7 @@ export default function Onboarding({
             type="password"
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
-            placeholder="At least 6 characters"
+            placeholder="At least 12 characters"
             autoCapitalize="none"
             autoCorrect="off"
           />

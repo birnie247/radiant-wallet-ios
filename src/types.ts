@@ -28,4 +28,11 @@ export interface Nav {
   history: HistoryEntry[] | null;
   /** Total transactions known across all addresses (may exceed history.length). */
   historyTotal: number;
+  /**
+   * Difference between the primary server's tip and an independent operator's.
+   * Null when no cross-check was possible. Non-zero means the servers disagree.
+   */
+  tipDrift: number | null;
+  allowScreenshots: boolean;
+  setAllowScreenshots: (allow: boolean) => void;
 }

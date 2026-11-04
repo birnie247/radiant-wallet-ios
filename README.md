@@ -18,7 +18,7 @@ behaviour is the ecosystem's own proven code rather than a re-implementation.
 | --- | --- |
 | Create wallet (BIP39 12-word) with encrypted backup | ✅ verified |
 | Restore from 12/15/18/21/24-word phrase (checksum validated) | ✅ verified |
-| Encrypted seed at rest (AES-256-GCM, PBKDF2-SHA256 310k) | ✅ implemented |
+| Encrypted seed at rest (AES-256-GCM, PBKDF2-SHA256 600k, 12-char min) | ✅ implemented |
 | BIP44 discovery, gap limit 20, receive + change chains | ✅ verified |
 | Live balance / UTXO fetch over ElectrumX WebSocket | ✅ verified vs mainnet |
 | Ref-safe send with review screen | ✅ signing verified offline |
@@ -235,10 +235,67 @@ Last live run: connected in 1.6 s, tip height 478552, 40 addresses discovered.
 
 ---
 
+## Security report remediation
+
+Remediation of the static-analysis report on the debug APK. Statuses describe
+what is actually verified, not what was intended.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| **HIGH-1** debuggable + WebView remote debugging | **Fixed** | `webContentsDebuggingEnabled: false` in the Capacitor config (verified present in the packaged `capacitor.config.json`), plus `WebView.setWebContentsDebuggingEnabled(false)` in `MainActivity`. Release builds are `debuggable=false` (absent from the manifest). |
+| **HIGH-2** debug signing key, v2-only | **Fixed, needs your key** | Release `signingConfig` read from `android/keystore.properties` (gitignored) with v1+v2+v3+v4 signing enabled, R8 minification and resource shrinking. With no keystore present, `assembleRelease` produces an **unsigned** APK (1.57 MB) instead of a debug-signed one. |
+| **MEDIUM-1** 6-char passphrase, PBKDF2 @ 310k | **Fixed** | 12-character minimum + trivial-pattern blocklist (`checkPassphrase`), PBKDF2-SHA256 raised to **600,000**, vault schema `v2`. Existing vaults still open and are **transparently re-encrypted** at the new cost on the next unlock. |
+| **MEDIUM-2** single untrusted Electrum server | **Partially fixed** | Bare-IP endpoint **removed** (an IP can't match a TLS identity); `verified` now gates connect order instead of being a label; endpoints tagged by `operator`; a cross-operator tip cross-check (`crossCheckTip`, bounded to 2 peers × 5s) warns in the UI on disagreement. **This is not SPV** — still no merkle-proof or proof-of-work verification. |
+| **LOW/MED-3** mnemonic resident in heap | **Improved** | Sending now requires passphrase re-authentication even in an unlocked session. JS still cannot zero memory. |
+| **L1** FLAG_SECURE scoped | **Fixed** | Screenshot/recording blocking is now **app-wide by default**, with an explicit Settings opt-out for QR sharing; seed screens stay blocked either way (ref-counted). |
+| **L2** WebView surface | **Fixed** | Geolocation, scripted popups, multiple windows and form-data retention disabled in `MainActivity.hardenWebView()`. |
+| **L3** dev metadata in bundle | **Mitigated** | R8 strips the release bytecode; the vendored `radiantjs` `package.json` still ships inside the web bundle (informational only, no secrets). |
+| **L4** trusted stored KDF params | **Fixed** | Stored iteration count is range-checked (100k–5M) and rejected outside it; KDF parameters are versioned by `v`. |
+
+### The honest gap: MEDIUM-2 is not really solved
+
+Verifying a server's answers requires SPV — fetch block headers, check
+proof-of-work (Radiant uses SHA-512/256d), and verify each transaction's merkle
+branch to the header. That is a substantial, consensus-sensitive feature and it is
+**not implemented**. What exists is a cheap disagreement check — and in testing
+every independent operator was offline:
+
+```
+OK   scanWallet() completed gap-limit discovery  40 addresses, 0 utxos
+     (no independent server reachable — cross-check skipped)
+```
+
+So today the app still trusts one Electrum server for balances, history and
+confirmation counts. The mitigation is bounded and produces no false alarms, and
+it will start working the moment a second operator is reachable. Treat the server
+as a semi-trusted view of the chain.
+
+### Producing a real release build
+
+```bash
+keytool -genkeypair -v -keystore android/rxd-release.jks \
+        -alias rxd -keyalg RSA -keysize 4096 -validity 10000
+
+cat > android/keystore.properties <<'EOF'
+storeFile=../rxd-release.jks
+storePassword=...
+keyAlias=rxd
+keyPassword=...
+EOF
+
+cd android && ./gradlew assembleRelease   # → app-release.apk (signed, v1..v4)
+```
+
+Verified on the unsigned release build: manifest has **no** `debuggable`,
+`allowBackup="false"`, `usesCleartextTraffic="false"`, the web bundle is present,
+and — because `-keep class org.radiant.wallet.**` is in `proguard-rules.pro` — R8
+**kept both plugins and all their `@PluginMethod` entry points**, so biometric
+unlock and FLAG_SECURE survive minification instead of silently disappearing.
+
 ## Security model
 
 **What is protected.** The mnemonic is encrypted with AES-256-GCM using a key
-stretched from your passphrase via PBKDF2-SHA256 (310,000 iterations, 16-byte
+stretched from your passphrase via PBKDF2-SHA256 (600,000 iterations, 16-byte
 random salt, 12-byte random IV, per-vault). Only ciphertext is stored; the
 plaintext exists in memory solely while unlocked. The GCM tag means a wrong
 passphrase or tampered vault fails cleanly rather than producing a garbage seed.
@@ -257,11 +314,10 @@ ever loaded into the WebView.
 2. **Keys are held in JS memory** while unlocked (WebView), not in native
    storage. Same class of exposure as any JavaScript wallet.
 3. **Screenshot blocking is framework-enforced only.** `FLAG_SECURE` is raised
-   while a recovery phrase is visible (create-backup, restore-entry, and the
-   reveal sheet), so ordinary screens like Receive stay screenshot-able by
-   design. It defeats Android screenshots and MediaProjection recordings and
-   blanks the Recents thumbnail, but it cannot stop a rooted device or someone
-   photographing the phone with another camera.
+   app-wide by default (opt-out in Settings for QR sharing), and always on the
+   recovery-phrase surfaces. It defeats Android screenshots and MediaProjection
+   recordings and blanks the Recents thumbnail, but it cannot stop a rooted
+   device or someone photographing the phone with another camera.
 4. **Change goes to one address** (the first unused change-chain address) rather
    than a fresh change address per transaction. It is watched by the scanner, so
    funds are never stranded, but it is weaker privacy than ideal.

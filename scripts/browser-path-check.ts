@@ -10,7 +10,13 @@
  *   18qiat9Kff5niCcincht6efD8HhFfzL1AJ
  */
 import { HDWallet, p2pkhScript, radiantjs, rxdToPhotons } from "@radiant-core/sdk";
-import { buildPayment, connect, scanWallet } from "../src/lib/wallet";
+import {
+  buildPayment,
+  connect,
+  crossCheckTip,
+  scanWallet,
+  MAX_TIP_DRIFT,
+} from "../src/lib/wallet";
 import { formatRxd, parseRxd } from "../src/lib/money";
 import type { ScanResult } from "../src/lib/wallet";
 
@@ -141,6 +147,22 @@ if (process.argv.includes("--live")) {
     scan.addresses.length >= 40 && typeof scan.total === "bigint",
     `${scan.addresses.length} addresses, ${scan.utxos.length} utxos`,
   );
+
+  // MEDIUM-2: independent tip cross-check.
+  const primaryTip = await client.request<{ height: number }>(
+    "blockchain.headers.subscribe",
+  );
+  const other = await crossCheckTip("mainnet", endpoint);
+  if (other) {
+    const drift = Math.abs((primaryTip?.height ?? 0) - other.height);
+    check(
+      "independent operator agrees on the chain tip",
+      drift <= MAX_TIP_DRIFT,
+      `${endpoint.replace("wss://", "")}=${primaryTip?.height} vs ${other.operator}=${other.height} (drift ${drift})`,
+    );
+  } else {
+    console.log("       (no independent server reachable — cross-check skipped)");
+  }
 
   client.close();
 }
@@ -297,6 +319,119 @@ if (process.argv.includes("--live")) {
 
   await releaseSecureScreen();
   check("counter never goes negative", secureScreenHolders() === 0);
+}
+
+// 8. Vault policy + KDF upgrade (security report MEDIUM-1 / L4).
+//    Uses a localStorage stub + the real WebCrypto, so this exercises the
+//    actual encrypt/decrypt/upgrade path rather than a mock.
+{
+  const store = new Map<string, string>();
+  (globalThis as unknown as { localStorage: unknown }).localStorage = {
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+  };
+
+  const vault = await import("../src/lib/vault");
+  const secrets = {
+    mnemonic: "test test test",
+    network: "mainnet" as const,
+    server: "",
+    label: "t",
+    createdAt: 1,
+  };
+
+  check("6-char passphrase rejected by policy", vault.checkPassphrase("abc123") !== null);
+  check(
+    "12-char passphrase accepted",
+    vault.checkPassphrase("correct horse battery") === null,
+  );
+  check(
+    "repetitive passphrase rejected",
+    vault.checkPassphrase("aaaaaaaaaaaaaaaa") !== null,
+  );
+
+  let policyEnforced = false;
+  try {
+    await vault.saveVault("abc123", secrets);
+  } catch {
+    policyEnforced = true;
+  }
+  check("saveVault enforces the policy", policyEnforced);
+
+  await vault.saveVault("correct horse battery", secrets);
+  const meta = vault.readVaultMeta();
+  check("new vault uses 600k iterations", meta?.iterations === 600_000, String(meta?.iterations));
+  check("new vault is schema 2", meta?.schema === 2, String(meta?.schema));
+  check(
+    "vault round-trips",
+    (await vault.unlockVault("correct horse battery")).mnemonic === secrets.mnemonic,
+  );
+
+  // Hand-build a LEGACY vault: schema 1, 310k iterations, 6-char passphrase.
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode("oldpass1"),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  const oldKey = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 310_000, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"],
+  );
+  const oldCt = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    oldKey,
+    enc.encode(JSON.stringify(secrets)),
+  );
+  const b64 = (u: Uint8Array) => Buffer.from(u).toString("base64");
+  store.set(
+    "rxd.wallet.vault.v1",
+    JSON.stringify({
+      v: 1,
+      kdf: "PBKDF2-SHA256",
+      iterations: 310_000,
+      salt: b64(salt),
+      iv: b64(iv),
+      ct: b64(new Uint8Array(oldCt)),
+      createdAt: 1,
+    }),
+  );
+
+  check("legacy vault reported as needing upgrade", vault.needsKdfUpgrade());
+  check(
+    "legacy 6-char passphrase still unlocks",
+    (await vault.unlockVault("oldpass1")).mnemonic === secrets.mnemonic,
+  );
+  const upgraded = vault.readVaultMeta();
+  check(
+    "legacy vault auto-upgraded to 600k / schema 2",
+    upgraded?.iterations === 600_000 && upgraded?.schema === 2,
+    `${upgraded?.iterations}/${upgraded?.schema}`,
+  );
+  check(
+    "upgraded vault still opens with the same passphrase",
+    (await vault.unlockVault("oldpass1")).mnemonic === secrets.mnemonic,
+  );
+
+  // Tampered KDF parameters must be refused, not honoured.
+  const tampered = JSON.parse(store.get("rxd.wallet.vault.v1")!);
+  tampered.iterations = 1_000;
+  store.set("rxd.wallet.vault.v1", JSON.stringify(tampered));
+  let tamperRejected = false;
+  try {
+    await vault.unlockVault("oldpass1");
+  } catch {
+    tamperRejected = true;
+  }
+  check("absurd stored iteration count rejected", tamperRejected);
 }
 
 console.log(`\n${failures === 0 ? "ALL BROWSER-PATH CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
