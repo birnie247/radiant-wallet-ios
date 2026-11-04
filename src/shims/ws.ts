@@ -2,7 +2,7 @@
  * Stub for the `ws` package.
  *
  * `@radiant-core/sdk` resolves its WebSocket constructor in this order:
- *   1. `globalThis.WebSocket`  <- always present in the Android WebView
+ *   1. `globalThis.WebSocket`  <- always present in a browser or WKWebView
  *   2. `await import("ws")`    <- Node-only fallback
  *
  * Vite aliases `ws` to this module so the Node-only fallback never drags

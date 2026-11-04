@@ -14,9 +14,10 @@ export default defineConfig({
   resolve: {
     alias: {
       // @radiant-core/sdk lazily imports `ws` ONLY as a Node fallback, after it
-      // has already checked for a global WebSocket. Inside the Android WebView
-      // the global always exists, so `ws` must never be pulled into the bundle
-      // (it requires node:net/node:tls and would break the browser build).
+      // has already checked for a global WebSocket. Inside the iOS WebView
+      // (WKWebView) the global always exists, so `ws` must never be pulled
+      // into the bundle (it requires node:net/node:tls and would break the
+      // browser build).
       ws: fileURLToPath(new URL("./src/shims/ws.ts", import.meta.url)),
       // Node's hashing/RNG module is not available in a WebView; radiantjs
       // feature-detects it and needs a stub that makes the detection fail

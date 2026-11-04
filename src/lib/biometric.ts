@@ -1,11 +1,11 @@
 /**
  * JS bridge to the app-local `BiometricVault` Capacitor plugin.
  *
- * The native side (BiometricVaultPlugin.java) owns an AES-256-GCM key inside the
- * AndroidKeyStore that requires a strong biometric for every use. It stores the
- * *entire* wallet secret blob (mnemonic + network + server prefs, as JSON)
- * encrypted under that key, so biometric unlock restores the full wallet state,
- * not just the phrase.
+ * The native side (BiometricVaultPlugin.swift) owns an AES-256-GCM key in the
+ * iOS Keychain whose access is gated by biometry-only access control: Face ID
+ * or Touch ID is required for every use. It stores the *entire* wallet secret
+ * blob (mnemonic + network + server prefs, as JSON) encrypted under that key,
+ * so biometric unlock restores the full wallet state, not just the phrase.
  *
  * Everything is optional: the wallet must remain usable with the passphrase
  * alone, so every call is guarded and failures surface as ordinary errors the UI
@@ -27,7 +27,7 @@ interface BiometricVaultApi {
 
 const BiometricVault = registerPlugin<BiometricVaultApi>("BiometricVault");
 
-/** True only inside the Android app — the plugin does not exist on the web. */
+/** True only inside the iOS app — the plugin does not exist on the web. */
 export function isBiometricPlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
@@ -45,7 +45,7 @@ export async function biometricStatus(): Promise<BiometricStatus> {
       platform: false,
       available: false,
       enrolled: false,
-      reason: "Biometric unlock is only available in the Android app",
+      reason: "Biometric unlock is only available in the iOS app",
     };
   }
   try {
@@ -79,7 +79,7 @@ export async function enableBiometricUnlock(
   secrets: WalletSecrets,
 ): Promise<void> {
   if (!isBiometricPlatform()) {
-    throw new Error("Biometric unlock is only available in the Android app");
+    throw new Error("Biometric unlock is only available in the iOS app");
   }
   await BiometricVault.enroll({
     alias: BIOMETRIC_ALIAS,
@@ -90,7 +90,7 @@ export async function enableBiometricUnlock(
 /** Prompt for a biometric and return the wallet secrets it unwraps. */
 export async function unlockWithBiometric(): Promise<WalletSecrets> {
   if (!isBiometricPlatform()) {
-    throw new Error("Biometric unlock is only available in the Android app");
+    throw new Error("Biometric unlock is only available in the iOS app");
   }
   const { secret } = await BiometricVault.unlock({ alias: BIOMETRIC_ALIAS });
   let parsed: WalletSecrets;

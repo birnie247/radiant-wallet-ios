@@ -20,8 +20,9 @@ import Settings from "./screens/Settings";
 /** Lock the wallet automatically after this long in the background. */
 const BACKGROUND_LOCK_MS = 60_000;
 
-/** L1: screenshots are blocked app-wide unless the user opts out. */
-const ALLOW_SCREENSHOTS_KEY = "rxd.security.allowScreenshots";
+/** L1: screen capture (recording/mirroring) is blocked app-wide unless the user
+ *  opts out. iOS cannot block manual screenshots — see screenSecurity.ts. */
+const ALLOW_SCREEN_CAPTURE_KEY = "rxd.security.allowScreenCapture";
 
 export default function App() {
   const [booted, setBooted] = useState(false);
@@ -32,18 +33,19 @@ export default function App() {
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [tipDrift, setTipDrift] = useState<number | null>(null);
-  const [allowScreenshots, setAllowScreenshotsState] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(ALLOW_SCREENSHOTS_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [allowScreenCapture, setAllowScreenCaptureState] =
+    useState<boolean>(() => {
+      try {
+        return localStorage.getItem(ALLOW_SCREEN_CAPTURE_KEY) === "1";
+      } catch {
+        return false;
+      }
+    });
 
-  const setAllowScreenshots = useCallback((allow: boolean) => {
-    setAllowScreenshotsState(allow);
+  const setAllowScreenCapture = useCallback((allow: boolean) => {
+    setAllowScreenCaptureState(allow);
     try {
-      localStorage.setItem(ALLOW_SCREENSHOTS_KEY, allow ? "1" : "0");
+      localStorage.setItem(ALLOW_SCREEN_CAPTURE_KEY, allow ? "1" : "0");
     } catch {
       /* ignore storage failure */
     }
@@ -185,16 +187,17 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [lock]);
 
-  // L1: block screenshots/screen recording app-wide, not only on seed screens.
-  // The refcount in screenSecurity.ts means seed screens stay protected even
-  // when the user has opted out here (for sharing a receive QR, say).
+  // L1: block screen capture (recording/mirroring) app-wide, not only on seed
+  // screens. The refcount in screenSecurity.ts means seed screens stay
+  // protected even when the user has opted out here (for sharing a receive
+  // QR, say).
   useEffect(() => {
-    if (allowScreenshots) return;
+    if (allowScreenCapture) return;
     void acquireSecureScreen();
     return () => {
       void releaseSecureScreen();
     };
-  }, [allowScreenshots]);
+  }, [allowScreenCapture]);
 
   // Tear the socket down on unmount.
   useEffect(() => {
@@ -244,8 +247,8 @@ export default function App() {
     history,
     historyTotal,
     tipDrift,
-    allowScreenshots,
-    setAllowScreenshots,
+    allowScreenCapture,
+    setAllowScreenCapture,
   };
 
   return (

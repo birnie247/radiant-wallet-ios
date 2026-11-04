@@ -194,7 +194,7 @@ export async function loadHistory(
       anyInput = true;
       // prevTxId is already in display order (verified empirically).
       // Convert without relying on a `Buffer` global, which is not guaranteed
-      // inside the Android WebView.
+      // inside the iOS WebView (WKWebView).
       const prevTxid: string =
         typeof input.prevTxId === "string"
           ? input.prevTxId

@@ -1,18 +1,25 @@
 /**
- * Reference-counted screen-recording protection.
+ * Reference-counted screen-capture protection for the iOS app.
  *
- * The native `ScreenSecurity` plugin toggles WindowManager FLAG_SECURE, which
- * blocks screenshots, keeps the window out of screen recordings / casting, and
- * blanks the app in the Recents thumbnail.
+ * iOS has no FLAG_SECURE: the OS cannot be asked to refuse a user-initiated
+ * screenshot, and there is no API to blank the app-switcher thumbnail. What the
+ * native `ScreenSecurity` plugin (ScreenSecurityPlugin.swift) does instead:
+ * while held, it watches for screen-capture events (screen recording, AirPlay
+ * mirroring, Sidecar) and covers the window with an opaque black layer, so a
+ * recording in progress captures nothing.
  *
- * FLAG_SECURE is global to the window, so a naive "turn it on, turn it off" from
- * two components at once would let the second caller clear the flag while the
- * first still shows a seed. Hence a holder count: the flag is only cleared when
- * the LAST holder releases it.
+ * A manual screenshot (volume + side button) cannot be intercepted on iOS.
+ * The UI says so honestly; the passphrase and the recovery phrase are the
+ * trust boundary, not the OS.
+ *
+ * Protection is global to the window, so a naive "turn it on, turn it off"
+ * from two components at once would let the second caller drop the overlay
+ * while the first still shows a seed. Hence a holder count: the overlay is
+ * only removed when the LAST holder releases it.
  *
  * Fail-safe direction: if a release is ever missed the app stays
- * screenshot-blocked, which is harmless. The dangerous direction — dropping the
- * flag while a phrase is visible — is what the counter prevents.
+ * capture-covered, which is harmless. The dangerous direction — dropping the
+ * overlay while a phrase is visible — is what the counter prevents.
  */
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
@@ -27,7 +34,7 @@ let holders = 0;
 /** Last state we successfully pushed to the window, to avoid bridge churn. */
 let applied: boolean | null = null;
 
-/** True only where the plugin exists (the Android app). */
+/** True only where the plugin exists (the iOS app). */
 export function screenSecurityAvailable(): boolean {
   return Capacitor.isNativePlatform();
 }

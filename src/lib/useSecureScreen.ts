@@ -10,7 +10,7 @@ import { acquireSecureScreen, releaseSecureScreen } from "./screenSecurity";
  *
  * Call `hold()` and AWAIT it before revealing a recovery phrase, rather than
  * relying on an effect: effects run after paint, which would leave a frame where
- * the seed is visible without FLAG_SECURE set.
+ * the seed is visible without the secure overlay set.
  */
 export function useSecureScreen(): {
   hold: () => Promise<void>;

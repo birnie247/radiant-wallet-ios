@@ -80,8 +80,8 @@
 
       <h2>1. Who this applies to</h2>
       <p>
-        This policy covers the Radiant Wallet Android application
-        (<code>org.radiant.wallet</code>), published by Birnie ("we", "us"). It
+        This policy covers the Radiant Wallet iOS application
+        (<code>org.radiant.wallet.ios</code>), published by Birnie ("we", "us"). It
         applies only to that app; it does not cover websites or services you
         reach from it.
       </p>
@@ -103,14 +103,15 @@
             Encrypted with AES-256-GCM under a key derived from your passphrase
             (PBKDF2-SHA256, 600,000 iterations) and stored in the app's private
             storage. If you enable biometric unlock, a second copy is encrypted
-            by a hardware-backed key in the Android Keystore.
+            by a key in the iOS Keychain that requires Face ID or Touch ID for
+            every use.
           </td>
         </tr>
         <tr>
           <td>Preferences</td>
           <td>
-            The Electrum server you picked and whether screenshots are allowed,
-            in the app's private storage.
+            The Electrum server you picked and whether screen capture is
+            allowed, in the app's private storage.
           </td>
         </tr>
       </table>
@@ -138,14 +139,14 @@
       <table>
         <tr><th>Permission</th><th>Why</th></tr>
         <tr>
-          <td><code>INTERNET</code></td>
+          <td>Outgoing network access</td>
           <td>To reach public ElectrumX servers.</td>
         </tr>
         <tr>
-          <td><code>USE_BIOMETRIC</code></td>
+          <td>Face ID (<code>NSFaceIDUsageDescription</code>)</td>
           <td>
             Only if you turn on biometric unlock, to unlock the wallet with your
-            fingerprint or face. Biometric data is handled by Android and is never
+            face or fingerprint. Biometric data is handled by iOS and is never
             available to the app.
           </td>
         </tr>

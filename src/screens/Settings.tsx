@@ -189,16 +189,16 @@ export default function Settings({ nav }: { nav: Nav }) {
 
           <button
             className="btn"
-            onClick={() => nav.setAllowScreenshots(!nav.allowScreenshots)}
+            onClick={() => nav.setAllowScreenCapture(!nav.allowScreenCapture)}
           >
-            {nav.allowScreenshots
-              ? "Block screenshots again"
-              : "Allow screenshots (QR sharing)"}
+            {nav.allowScreenCapture
+              ? "Block screen capture again"
+              : "Allow screen capture (QR sharing)"}
           </button>
           <div className="hint">
-            {nav.allowScreenshots
-              ? "Screenshots are allowed app-wide, but the recovery phrase stays blocked."
-              : "Screenshots and screen recording are blocked app-wide. Turn this on only when you need to share a receive address."}
+            {nav.allowScreenCapture
+              ? "Screen recording and mirroring are allowed app-wide, but the recovery phrase stays covered."
+              : "Screen recording and mirroring are blocked app-wide. Turn this on only when you need to share a receive address."}
           </div>
 
           {bio?.platform === true && bio.available ? (
@@ -216,15 +216,15 @@ export default function Settings({ nav }: { nav: Nav }) {
           ) : (
             <div className="hint">
               {bio?.reason ||
-                "Biometric unlock is only available in the Android app."}
+                "Biometric unlock is only available in the iOS app."}
             </div>
           )}
 
           {bioEnrolled && (
             <div className="hint">
-              Your wallet secret is encrypted by a hardware key in the Android
-              Keystore that requires a strong biometric for every use. Enrolling
-              a new fingerprint invalidates the key and disables biometric
+              Your wallet secret is encrypted with a key in the iOS Keychain
+              that requires Face ID or Touch ID for every use. Enrolling a new
+              face or fingerprint invalidates the key and disables biometric
               unlock.
             </div>
           )}
@@ -249,7 +249,7 @@ export default function Settings({ nav }: { nav: Nav }) {
               <button
                 className="btn danger"
                 onClick={async () => {
-                  // Drop the Keystore-wrapped copy too, so a deleted wallet
+                  // Drop the Keychain-wrapped copy too, so a deleted wallet
                   // cannot be reopened through the biometric prompt.
                   await disableBiometricUnlock();
                   deleteVault();
@@ -343,8 +343,9 @@ function RevealSheet({
             </div>
             {screenSecurityAvailable() && (
               <div className="hint">
-                Screenshots and screen recording are blocked while this phrase is
-                on screen.
+                Screen recording and mirroring are blocked while this phrase is
+                on screen. iOS cannot block a manual screenshot — never
+                photograph the phrase.
               </div>
             )}
             <button className="btn" onClick={onClose}>

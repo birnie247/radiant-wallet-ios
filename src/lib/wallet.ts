@@ -141,7 +141,7 @@ export async function connect(
     try {
       await withTimeout(client.connect(), 12_000, `connect ${url}`);
       await withTimeout(
-        client.serverVersion("rxd-android-wallet", "1.4"),
+        client.serverVersion("rxd-ios-wallet", "1.0"),
         8_000,
         `handshake ${url}`,
       );

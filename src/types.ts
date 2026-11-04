@@ -33,6 +33,7 @@ export interface Nav {
    * Null when no cross-check was possible. Non-zero means the servers disagree.
    */
   tipDrift: number | null;
-  allowScreenshots: boolean;
-  setAllowScreenshots: (allow: boolean) => void;
+  /** Whether screen capture (recording/mirroring) is allowed app-wide. */
+  allowScreenCapture: boolean;
+  setAllowScreenCapture: (allow: boolean) => void;
 }
