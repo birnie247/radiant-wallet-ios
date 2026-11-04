@@ -2,6 +2,7 @@
   "name": "rxd-wallet",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Non-custodial Radiant (RXD) wallet for Android",
   "scripts": {

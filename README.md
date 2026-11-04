@@ -479,7 +479,22 @@ Glyph FT send/receive → fiat price.
 
 ---
 
-## Attribution & licence
+## Licence
+
+**This project is MIT licensed** — see [LICENSE](LICENSE). Copyright (c) 2026
+Birnie. You may use, modify, and redistribute it, including commercially,
+provided the copyright notice and permission notice are retained.
+
+Two carve-outs worth knowing:
+
+- **`assets/brand/radiant-mark.png` and the icons generated from it are
+  Apache-2.0**, not MIT — they come from the Radiant project (see
+  [App icon](#app-icon)). Keep their attribution if you redistribute them.
+- **Dependencies keep their own licences.** `@radiant-core/sdk`,
+  `@radiant-core/radiantjs`, Capacitor and React are MIT; Inter is SIL OFL 1.1;
+  the AndroidX libraries (biometric, appcompat, core) are Apache-2.0.
+
+## Attribution
 
 Signing, ref-safety and Glyph logic come from
 [`@radiant-core/sdk`](https://github.com/Radiant-Core/radiant-sdk) and
