@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   android: {
     // The wallet never loads remote content, so mixed content stays off.
     allowMixedContent: false,
-    backgroundColor: "#0b0b0fff",
+    backgroundColor: "#000000",
   },
   server: {
     // An https scheme gives the WebView a secure context, which the clipboard

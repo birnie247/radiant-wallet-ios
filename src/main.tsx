@@ -2,6 +2,9 @@
 // before any Radiant library module body is evaluated.
 import "./polyfills";
 
+// Brand typeface, bundled locally so it works offline inside the WebView.
+import "@fontsource-variable/inter";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";

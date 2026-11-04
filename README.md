@@ -294,6 +294,35 @@ additional door, never the only one. Deleting the wallet also deletes the
 Keystore key, and a wrong/failed biometric leaves you on the unlock screen with
 the passphrase available.
 
+## Design system
+
+The UI deliberately mirrors [radiantblockchain.org](https://radiantblockchain.org).
+Tokens were lifted from their stylesheet (`assets/css/style.css`) rather than
+eyeballed, and then verified by sampling rendered pixels:
+
+| Token | Value | Source |
+| --- | --- | --- |
+| Canvas | `hsl(0,0%,0%)` `#000000` | `--color-bg` |
+| Surfaces | `hsl(204,15%,6%)`, `hsl(203,18%,9%)`, `hsl(203,18%,17%)` | `--color-bg-darker/-dark/-light` |
+| Brand / primary | `hsl(195,100%,44%)` **`#00A8E0`** | `--color-primary`, `--color-accent` |
+| Button fill | `hsl(240,1%,10%)` | `--color-contrast-lowest` |
+| Text ladder | `hsl(240,100%,99%)` → `hsl(223,8%,82%)` → `hsl(213,5%,56%)` → `hsl(208,6%,40%)` | `--color-contrast-higher/high/medium/low` |
+| Typeface | **Inter Variable** (bundled via `@fontsource-variable/inter`) | Google Fonts import on the site |
+| Radius | 4px base (`--radius-sm`), 6px cards, 10px sheets | `--radius-md: 0.25em` |
+| Borders | hairline `hsl(208,12%,24%)`, flat surfaces, no glow | `--color-contrast-lower` |
+
+Light mode is supported via `prefers-color-scheme` using the site's own light
+token set, because their theme control defaults to *System*. Text sitting **on**
+cyan stays near-black in both themes — white on `#00A8E0` is unreadable.
+
+Verification (pixel sampling of a headless-Chrome render, quantised):
+
+```
+dark  : #000000 80.2%   #00a8e0 5.2%   #181818 4.7%    (theme=dark)
+light : #ffffff 80.2%   #00a8e0 5.3%   #e0e0e0 4.8%    (theme=light)
+site  : #000000 66.2%   #080810 8.2%   #101018 6.8%    (reference)
+```
+
 ## Screen privacy (anti-screen-recording)
 
 `ScreenSecurityPlugin.java` toggles `WindowManager.LayoutParams.FLAG_SECURE` on
