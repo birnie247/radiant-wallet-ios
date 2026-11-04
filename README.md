@@ -385,6 +385,13 @@ Built from the official Radiant mark — `assets/brand/radiant-mark.png`, vendor
 from [Radiant-Core/Radiant-Logo](https://github.com/Radiant-Core/Radiant-Logo)
 (`Radiant-Logo-R-Transparent.png`: brand cyan + cream, transparent).
 
+That artwork is licensed **Apache-2.0** (upstream:
+[RadiantBlockchain-Community/Radiant-logo](https://github.com/RadiantBlockchain-Community/Radiant-logo)).
+The Radiant name and logo are the Radiant project's brand assets: they are used
+here to identify which network this wallet talks to, not to imply that this app is
+official or endorsed. If you fork this and ship it, consider replacing the mark
+with your own unless you have permission.
+
 `npm run icons` regenerates every density:
 
 - **Adaptive foreground** (`mipmap-*/ic_launcher_foreground.png`) — 108dp canvas,
