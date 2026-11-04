@@ -260,7 +260,10 @@ public class BiometricVaultPlugin extends Plugin {
                             }
                         });
 
-                prompt.authenticate(new BiometricPrompt.CryptoObject(cipher), info);
+                // Signature is authenticate(PromptInfo, CryptoObject) — the
+                // cipher MUST be bound to the prompt this way, otherwise the
+                // decryption could be performed without the user's biometric.
+                prompt.authenticate(info, new BiometricPrompt.CryptoObject(cipher));
             } catch (Exception e) {
                 failPending("Biometric prompt failed: " + e.getMessage());
             }

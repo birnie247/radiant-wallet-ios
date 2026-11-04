@@ -28,8 +28,8 @@ behaviour is the ecosystem's own proven code rather than a re-implementation.
 | Auto-lock after 60 s in background | ✅ implemented |
 | QR code display for receiving | ✅ implemented |
 | Transaction history with confirmation counts | ✅ verified against synthetic txs |
-| Biometric unlock (Android Keystore + BiometricPrompt) | ⚠️ implemented, not device-tested |
-| Recovery phrase blocks screenshots & screen recording | ⚠️ implemented (`FLAG_SECURE`), not device-tested |
+| Biometric unlock (Android Keystore + BiometricPrompt) | ✅ compiles into APK; not device-run |
+| Recovery phrase blocks screenshots & screen recording | ✅ compiles into APK; not device-run |
 | **QR scanning, Glyph tokens, WAVE names, price** | ❌ not yet |
 
 > **Honest caveat:** no transaction has been broadcast to mainnet from this code
@@ -163,13 +163,20 @@ npx cap sync android → ./gradlew assembleDebug`. The APK is uploaded as the
 npm install
 npm run build
 npx cap sync android
-npx cap open android      # opens Android Studio
-# or, from the command line:
 cd android && ./gradlew assembleDebug
 # → android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Requires JDK 21 and the Android SDK (platform 36). `minSdkVersion` is 26.
+Verified working toolchain:
+
+- **JDK 21.** Gradle 8.14.3 (the wrapper version) does *not* accept the JDK 25
+  that ships inside Android Studio 2026.2, so `JAVA_HOME` must point at a JDK 21.
+  AGP 8.13 + Gradle 8.14.3 + JDK 21 is a known-good combination.
+- **Android SDK** with `platforms;android-36`; AGP pulls its own
+  `build-tools;35.0.0` automatically. Point Gradle at it via
+  `android/local.properties` (`sdk.dir=C:/Android/Sdk`), which is gitignored.
+
+`minSdkVersion` is 26, `targetSdkVersion` is 36.
 
 ## Testing
 
@@ -178,6 +185,8 @@ npm run check:browser   # offline: crypto path, derivation, signing (fast, CI-sa
 npm run check:live      # live ElectrumX read + offline tx build (network required)
 npm run probe           # which endpoints answer a handshake right now
 node scripts/check-multisign.mjs   # proves input-index ↔ key pairing
+
+cd android && ./gradlew assembleDebug   # native compile + packaging gate
 ```
 
 `check:browser` is the important one: it builds the real module graph with the
@@ -209,11 +218,11 @@ ever loaded into the WebView.
 
 **Known limitations — read these:**
 
-1. **The native biometric plugin has never been compiled or run.** There is no
-   JDK/Android SDK on the machine this was built on, so
-   `BiometricVaultPlugin.java` is reviewed but unbuilt. The CI workflow compiles
-   it; verify it on a real device before trusting it with funds. Everything
-   fails safe — biometric errors fall back to the passphrase.
+1. **The native plugins compile, but have not been run on a device.** The APK
+   builds cleanly and both `BiometricVaultPlugin` and `ScreenSecurityPlugin` are
+   present in the APK's DEX, but a biometric prompt and `FLAG_SECURE` need real
+   hardware with an enrolled fingerprint to confirm end-to-end. Everything fails
+   safe — biometric errors fall back to the passphrase.
 2. **Keys are held in JS memory** while unlocked (WebView), not in native
    storage. Same class of exposure as any JavaScript wallet.
 3. **Screenshot blocking is framework-enforced only.** `FLAG_SECURE` is raised
