@@ -35,6 +35,12 @@ jobs:
       - name: Verify the browser crypto path
         run: npm run check:browser
 
+      # Loads the real built bundle in headless Chrome. This is the only gate
+      # that can catch WebView-only failures (e.g. a missing `Buffer` global,
+      # which Node has and a browser does not).
+      - name: Browser smoke test
+        run: npm run check:smoke
+
       - name: Sync Capacitor
         run: npx cap sync android
 

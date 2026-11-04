@@ -24,6 +24,8 @@ build-*.txt
 ssr-*.txt
 check-*.txt
 cap-*.txt
+dom*.html
+.smoke-profile/
 
 # editor / OS
 .vscode/

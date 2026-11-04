@@ -126,10 +126,30 @@ deliberate:
 
 | Shim | Why |
 | --- | --- |
+| `polyfills.ts` | Installs `Buffer`, `global` and a minimal `process` on `globalThis` **before** any library module evaluates. radiantjs and its deps assume a Node-style global `Buffer`; without this the WebView threw `ReferenceError: Buffer is not defined` at startup and the app was a black screen. |
 | `shims/crypto.ts` | `createHash` is deliberately **absent** so radiantjs picks its pure-JS hasher. `createHmac` **is** provided (over `js-sha512`) because `lib/mnemonic/pbkdf2.js` calls it unconditionally with no fallback — without it, *creating any wallet fails*. |
 | `shims/assert.cjs` | Node's `assert` is externalized to an empty module, so `assert(…)` throws "not a function" — during HD key building and **transaction serialisation**. Must be `.cjs` so `module.exports` is the callable. |
 | `shims/ws.ts` | The SDK imports `ws` only as a Node fallback; the WebView always uses the global `WebSocket`. |
 | `process.browser` define | `lib/crypto/random.js` branches on it to choose Web Crypto over `crypto.randomBytes`. Without it the CSPRNG path is dead. |
+
+### The bug that only a real browser could catch
+
+The first APK installed as a **black screen**. Cause: a bare `Buffer` reference
+in the bundle, which is fine in Node (Node defines `Buffer` globally) and fatal
+in a WebView. The entire Node-based test suite passed while the app was
+completely dead.
+
+Three things came out of that:
+
+1. `src/polyfills.ts`, imported first in `main.tsx` so the globals exist before
+   any library module body runs.
+2. `index.html` now has a **startup watchdog**: if the bundle throws or never
+   mounts, the real error (message, stack, WebView UA) is rendered on screen
+   instead of a silent black page. A wallet should fail loudly.
+3. `npm run check:smoke` — serves the built bundle and loads it in headless
+   Chrome, asserting the app actually mounts and no uncaught error occurred. It
+   is now a CI gate, and it is verified to *fail* on the broken bundle. The APK's
+   own packaged assets were smoke-tested the same way (`SMOKE_DIST=<dir>`).
 
 None of this was guessed: `npm run check:browser` builds the app's real module
 graph and asserts a known BIP39 test-vector address, a freshly generated
@@ -182,11 +202,22 @@ Verified working toolchain:
 
 ```bash
 npm run check:browser   # offline: crypto path, derivation, signing (fast, CI-safe)
+npm run check:smoke     # loads the REAL built bundle in headless Chrome
 npm run check:live      # live ElectrumX read + offline tx build (network required)
 npm run probe           # which endpoints answer a handshake right now
 node scripts/check-multisign.mjs   # proves input-index ↔ key pairing
 
 cd android && ./gradlew assembleDebug   # native compile + packaging gate
+```
+
+`check:smoke` is the one that decides whether the app actually runs: it serves
+`dist/` and loads it in headless Chrome, failing if `#root` never renders or an
+uncaught error occurs. Everything else can pass while the app is a black screen —
+that is exactly what happened once. To smoke-test the assets packaged inside an
+APK, point it at extracted assets:
+
+```bash
+SMOKE_DIST=C:/Android/apk-assets npm run check:smoke
 ```
 
 `check:browser` is the important one: it builds the real module graph with the

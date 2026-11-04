@@ -12,6 +12,61 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Startup diagnostics.
+         A wallet must never fail as a silent black screen: if the bundle throws
+         or never mounts (old WebView lacking BigInt/ES2022, asset load failure),
+         surface the real reason on screen instead of an empty page. -->
+    <script>
+      (function () {
+        var shown = false;
+        function show(title, detail) {
+          if (shown) return;
+          shown = true;
+          var root = document.getElementById("root");
+          if (!root) return;
+          var box = document.createElement("div");
+          box.style.cssText =
+            "position:fixed;inset:0;padding:16px;background:#0b0b0f;color:#ff9a9a;" +
+            "font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;" +
+            "overflow:auto;z-index:99999;-webkit-user-select:text;user-select:text";
+          box.textContent =
+            "Radiant Wallet failed to start\n\n" +
+            title +
+            "\n\n" +
+            detail +
+            "\n\n" +
+            "WebView: " +
+            navigator.userAgent;
+          root.innerHTML = "";
+          root.appendChild(box);
+        }
+        window.addEventListener("error", function (e) {
+          show(
+            e.message || "Script error",
+            (e.error && e.error.stack) || e.filename + ":" + e.lineno,
+          );
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e.reason;
+          show("Unhandled promise rejection", (r && (r.stack || r.message)) || String(r));
+        });
+        // Watchdog: React should mount almost immediately. If nothing rendered,
+        // the module never executed (parse error / unsupported syntax).
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.children.length === 0) {
+            show(
+              "The app bundle did not run",
+              "No UI was rendered. This usually means the WebView is too old " +
+                "(the app needs a Chromium 67+ WebView for BigInt/ES2022) or the " +
+                "packaged assets could not be loaded.",
+            );
+          }
+        }, 8000);
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
