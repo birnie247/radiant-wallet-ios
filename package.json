@@ -13,6 +13,7 @@
     "android": "cap open android",
     "check:browser": "vite build -c vite.test.config.ts && node dist-test/browser-path-check.js",
     "check:smoke": "node scripts/smoke-browser.mjs",
+    "icons": "node scripts/build-icons.mjs",
     "check:live": "node scripts/live-e2e.mjs",
     "probe": "node scripts/probe-servers.mjs"
   },

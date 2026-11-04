@@ -323,6 +323,35 @@ light : #ffffff 80.2%   #00a8e0 5.3%   #e0e0e0 4.8%    (theme=light)
 site  : #000000 66.2%   #080810 8.2%   #101018 6.8%    (reference)
 ```
 
+## App icon
+
+Built from the official Radiant mark — `assets/brand/radiant-mark.png`, vendored
+from [Radiant-Core/Radiant-Logo](https://github.com/Radiant-Core/Radiant-Logo)
+(`Radiant-Logo-R-Transparent.png`: brand cyan + cream, transparent).
+
+`npm run icons` regenerates every density:
+
+- **Adaptive foreground** (`mipmap-*/ic_launcher_foreground.png`) — 108dp canvas,
+  transparent, mark at **56%** of the canvas so it stays inside Android's 66%
+  safe zone and survives circular/squircle masks.
+- **Legacy icons** (`ic_launcher.png`, `ic_launcher_round.png`) — 48–192dp, mark
+  at 70%/60%, black background, round variant circular-masked.
+- **Adaptive background** — solid `#000000`
+  (`values/ic_launcher_background.xml`), replacing the template's white.
+
+Compositing is done in Node with `pngjs` (crop to the mark's ink → area-average
+downscale → centre), not a browser. Every output's ink bounding box is then
+measured and the script **fails if it is outside tolerance**, so the sizing is
+verified rather than assumed:
+
+```
+OK   mipmap-xxxhdpi/ic_launcher.png              192px  ink 0.698 (target 0.7)
+OK   mipmap-xxxhdpi/ic_launcher_foreground.png   432px  ink 0.56  (target 0.56)
+```
+
+Themed (monochrome) icons for Android 13+ are intentionally not provided yet;
+those devices fall back to the normal full-colour icon.
+
 ## Screen privacy (anti-screen-recording)
 
 `ScreenSecurityPlugin.java` toggles `WindowManager.LayoutParams.FLAG_SECURE` on
