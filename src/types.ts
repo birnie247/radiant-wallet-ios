@@ -1,6 +1,7 @@
 import type { ElectrumClient, HDWallet } from "@radiant-core/sdk";
 import type { WalletSecrets } from "./lib/vault";
 import type { ScanResult } from "./lib/wallet";
+import type { HistoryEntry } from "./lib/history";
 
 /** An unlocked, connected wallet. Lives only in memory. */
 export interface Session {
@@ -23,4 +24,8 @@ export interface Nav {
   reconnect: () => Promise<void>;
   /** Non-empty while a long operation is running. */
   busy: string;
+  /** Confirmation-annotated history, newest first. Null until loaded. */
+  history: HistoryEntry[] | null;
+  /** Total transactions known across all addresses (may exceed history.length). */
+  historyTotal: number;
 }

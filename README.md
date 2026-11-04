@@ -27,6 +27,8 @@ behaviour is the ecosystem's own proven code rather than a re-implementation.
 | Reveal recovery phrase behind passphrase re-entry | ✅ implemented |
 | Auto-lock after 60 s in background | ✅ implemented |
 | QR code display for receiving | ✅ implemented |
+| Transaction history with confirmation counts | ✅ verified against synthetic txs |
+| Biometric unlock (Android Keystore + BiometricPrompt) | ⚠️ implemented, not device-tested |
 | **QR scanning, Glyph tokens, WAVE names, price** | ❌ not yet |
 
 > **Honest caveat:** no transaction has been broadcast to mainnet from this code
@@ -87,18 +89,26 @@ src/
   lib/
     wallet.ts     HD discovery, balance aggregation, ref-safe payment building
     vault.ts      AES-256-GCM + PBKDF2 encrypted seed storage
+    biometric.ts  JS bridge to the native Keystore/BiometricPrompt plugin
+    history.ts    confirmation-annotated transaction history
     servers.ts    ElectrumX endpoint pool (WebSocket) + preferred server
     money.ts      BigInt photon/RXD conversion (never float)
   screens/
     Onboarding.tsx  create / restore / passphrase
-    Unlock.tsx      unlock + wipe
-    Home.tsx        balance, sync status, funds by address
+    Unlock.tsx      biometric or passphrase unlock, wipe
+    Home.tsx        balance, activity list, funds by address
     Receive.tsx     QR + address
     Send.tsx        compose → review → broadcast
-    Settings.tsx    servers, seed backup, lock, wipe
+    Settings.tsx    servers, biometric toggle, seed backup, lock, wipe
+  components/
+    ActivityList.tsx  history rows with confirmation badges
   shims/          browser replacements for Node internals (see below)
+android/app/src/main/java/org/radiant/wallet/
+  BiometricVaultPlugin.java   AndroidKeyStore + BiometricPrompt (native)
+  MainActivity.java           registers the plugin before the bridge starts
 scripts/
-  browser-path-check.ts  runtime proof of the browser crypto path
+  browser-path-check.ts  runtime proof: crypto path, signing, history logic
+  probe-tx-parse.mjs     pins down radiantjs input/output field semantics
   check-multisign.mjs    multi-address signing-order proof
   live-e2e.mjs           live ElectrumX read + offline tx build
   probe-servers.mjs      liveness probe for every endpoint
@@ -119,7 +129,9 @@ deliberate:
 
 None of this was guessed: `npm run check:browser` builds the app's real module
 graph and asserts a known BIP39 test-vector address, a freshly generated
-mnemonic, and a signed transaction (sighash `0x41`, correct pubkey, sane fee).
+mnemonic, a signed transaction (sighash `0x41`, correct pubkey, sane fee), and
+the history engine's direction/confirmation/fee maths against synthetic
+transactions.
 
 ---
 
@@ -193,9 +205,11 @@ ever loaded into the WebView.
 
 **Known limitations — read these:**
 
-1. **No Android Keystore / biometrics yet.** The passphrase alone protects the
-   vault. A rooted device with a memory dumper can recover the seed while the
-   wallet is unlocked. This is the top hardening priority.
+1. **The native biometric plugin has never been compiled or run.** There is no
+   JDK/Android SDK on the machine this was built on, so
+   `BiometricVaultPlugin.java` is reviewed but unbuilt. The CI workflow compiles
+   it; verify it on a real device before trusting it with funds. Everything
+   fails safe — biometric errors fall back to the passphrase.
 2. **Keys are held in JS memory** while unlocked (WebView), not in native
    storage. Same class of exposure as any JavaScript wallet.
 3. **No screenshot protection** (`FLAG_SECURE`) yet, so the recovery-phrase
@@ -205,8 +219,47 @@ ever loaded into the WebView.
    funds are never stranded, but it is weaker privacy than ideal.
 5. **Address gap is fixed at 20.** If history is spread further, raise
    `GAP_LIMIT` in `src/lib/wallet.ts`; the hard cap is 200.
-6. **The vault is not independently audited.** Standard primitives, careful
+6. **History is capped at the 25 most recent transactions**, and each one costs
+   an extra request per foreign input. A wallet with very large history will be
+   slow to describe; the balance is unaffected.
+7. **The vault is not independently audited.** Standard primitives, careful
    usage, but no third-party review.
+
+## Biometric unlock — how it works
+
+Enabling it encrypts the *entire* wallet secret blob (mnemonic + network +
+server preferences, as JSON) with an AES-256-GCM key created in the
+**AndroidKeyStore** with:
+
+```java
+setUserAuthenticationRequired(true)
+setInvalidatedByBiometricEnrollment(true)   // a newly enrolled finger voids the key
+setUserAuthenticationParameters(0, AUTH_BIOMETRIC_STRONG)
+```
+
+Key material never leaves the TEE. The cipher is bound to the prompt via
+`BiometricPrompt.CryptoObject`, so authenticating and decrypting cannot be
+separated, and only `BIOMETRIC_STRONG` (not device credential) is accepted.
+
+The passphrase vault stays the source of truth: biometric unlock is an
+additional door, never the only one. Deleting the wallet also deletes the
+Keystore key, and a wrong/failed biometric leaves you on the unlock screen with
+the passphrase available.
+
+## Transaction confirmations
+
+`src/lib/history.ts` builds a confirmation-annotated history using only standard
+ElectrumX calls (`blockchain.scripthash.get_history`,
+`blockchain.transaction.get`, `blockchain.block.header`). For each transaction it
+resolves prevouts to work out the signed net effect, so a send is not mistaken
+for a receive, and computes `confirmations = tip - height + 1` (0 = pending).
+Block timestamps are read directly from the 80-byte header.
+
+Non-obvious detail that is verified rather than assumed: radiantjs exposes
+`input.prevTxId` **already in display byte order**, so reversing it — the usual
+Bitcoin-fundamentalist reflex — would make every one of your own spends look like
+a foreign input. `scripts/probe-tx-parse.mjs` pins this down.
+
 
 **Never** ask anyone for your recovery phrase, and never type it into a website.
 This app only ever asks for your *passphrase*, which is local to this device.
@@ -224,8 +277,8 @@ This app only ever asks for your *passphrase*, which is local to this device.
   totals), no QR *scanner* (a `BarcodeDetector` hook fits naturally in
   `Receive.tsx`/`Send.tsx`).
 
-**Roadmap:** Android Keystore-wrapped key + biometric unlock → `FLAG_SECURE` →
-QR scanning → transaction history → Glyph FT send/receive → fiat price.
+**Roadmap:** `FLAG_SECURE` → QR scanning → per-transaction change addresses →
+Glyph FT send/receive → fiat price.
 
 ---
 

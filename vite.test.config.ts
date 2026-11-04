@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import base from "./vite.config";
+import base from "./vite.config.ts";
 
 /**
  * Config for the runtime check in scripts/browser-path-check.ts.

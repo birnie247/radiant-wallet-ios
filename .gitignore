@@ -18,6 +18,8 @@ android/app/src/main/assets/capacitor.plugins.json
 
 # logs / scratch
 *.log
+*.out
+*.err
 build-*.txt
 ssr-*.txt
 check-*.txt

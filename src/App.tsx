@@ -3,6 +3,8 @@ import { HDWallet } from "@radiant-core/sdk";
 import { hasVault, unlockVault, type WalletSecrets } from "./lib/vault";
 import { connect, scanWallet } from "./lib/wallet";
 import { getPreferredServer } from "./lib/servers";
+import { loadHistory, type HistoryEntry } from "./lib/history";
+import { unlockWithBiometric } from "./lib/biometric";
 import type { Screen, Session } from "./types";
 import Onboarding from "./screens/Onboarding";
 import Unlock from "./screens/Unlock";
@@ -20,6 +22,8 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [busy, setBusy] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [historyTotal, setHistoryTotal] = useState(0);
 
   const sessionRef = useRef<Session | null>(null);
   sessionRef.current = session;
@@ -27,6 +31,25 @@ export default function App() {
   useEffect(() => {
     setHasExisting(hasVault());
     setBooted(true);
+  }, []);
+
+  /**
+   * Load confirmation-annotated history in the background.
+   * Deliberately non-blocking: the wallet is usable before this resolves, and a
+   * server that refuses to serve history must not stop the user spending.
+   */
+  const hydrateHistory = useCallback(async (next: Session) => {
+    setHistory(null);
+    try {
+      const result = await loadHistory(next.client, next.scan.addresses, {
+        limit: 25,
+      });
+      setHistory(result.entries);
+      setHistoryTotal(result.totalKnown);
+    } catch {
+      setHistory([]);
+      setHistoryTotal(0);
+    }
   }, []);
 
   /** Connect, scan, and hold the wallet in memory. */
@@ -50,10 +73,11 @@ export default function App() {
 
       setSession({ secrets, wallet, client, endpoint, scan });
       setScreen("home");
+      void hydrateHistory({ secrets, wallet, client, endpoint, scan });
     } finally {
       setBusy("");
     }
-  }, []);
+  }, [hydrateHistory]);
 
   /** Re-scan balances against the live connection. */
   const refresh = useCallback(async () => {
@@ -64,11 +88,13 @@ export default function App() {
       const scan = await scanWallet(current.client, current.wallet, {
         onProgress: setBusy,
       });
-      setSession({ ...current, scan });
+      const next = { ...current, scan };
+      setSession(next);
+      void hydrateHistory(next);
     } finally {
       setBusy("");
     }
-  }, []);
+  }, [hydrateHistory]);
 
   /** Drop the socket and reconnect, optionally to a newly preferred server. */
   const reconnect = useCallback(async () => {
@@ -89,11 +115,13 @@ export default function App() {
       const scan = await scanWallet(client, current.wallet, {
         onProgress: setBusy,
       });
-      setSession({ ...current, client, endpoint, scan });
+      const next = { ...current, client, endpoint, scan };
+      setSession(next);
+      void hydrateHistory(next);
     } finally {
       setBusy("");
     }
-  }, []);
+  }, [hydrateHistory]);
 
   const lock = useCallback(() => {
     const current = sessionRef.current;
@@ -107,6 +135,8 @@ export default function App() {
     setSession(null);
     setScreen("home");
     setHasExisting(hasVault());
+    setHistory(null);
+    setHistoryTotal(0);
   }, []);
 
   // Auto-lock when the app has been in the background.
@@ -146,6 +176,10 @@ export default function App() {
           const secrets = await unlockVault(passphrase);
           await openWallet(secrets);
         }}
+        onBiometricUnlock={async () => {
+          const secrets = await unlockWithBiometric();
+          await openWallet(secrets);
+        }}
       />
     ) : (
       <Onboarding
@@ -164,6 +198,8 @@ export default function App() {
     lock,
     reconnect,
     busy,
+    history,
+    historyTotal,
   };
 
   return (

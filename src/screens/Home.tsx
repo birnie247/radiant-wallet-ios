@@ -1,4 +1,5 @@
 import { formatRxd, shortId } from "../lib/money";
+import ActivityList from "../components/ActivityList";
 import type { Nav } from "../types";
 
 export default function Home({ nav }: { nav: Nav }) {
@@ -104,6 +105,9 @@ export default function Home({ nav }: { nav: Nav }) {
             </div>
           </div>
         </div>
+
+        <div className="section-title">Recent activity</div>
+        <ActivityList entries={nav.history} totalKnown={nav.historyTotal} />
 
         {perAddress.size > 0 && (
           <>

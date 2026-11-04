@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteVault, unlockVault } from "../lib/vault";
 import { SERVERS, setPreferredServer } from "../lib/servers";
+import {
+  biometricStatus,
+  disableBiometricUnlock,
+  enableBiometricUnlock,
+  type BiometricStatus,
+} from "../lib/biometric";
 import { formatRxd, shortId } from "../lib/money";
 import type { Nav } from "../types";
 
@@ -15,6 +21,42 @@ export default function Settings({ nav }: { nav: Nav }) {
   const [revealed, setRevealed] = useState("");
   const [revealError, setRevealError] = useState("");
   const [switching, setSwitching] = useState("");
+  const [bio, setBio] = useState<BiometricStatus | null>(null);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioError, setBioError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    biometricStatus()
+      .then((status) => {
+        if (alive) setBio(status);
+      })
+      .catch(() => {
+        /* biometrics are optional */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const bioEnrolled = bio?.enrolled === true;
+
+  async function toggleBiometric() {
+    setBioError("");
+    setBioBusy(true);
+    try {
+      if (bioEnrolled) {
+        await disableBiometricUnlock();
+      } else {
+        await enableBiometricUnlock(session.secrets);
+      }
+      setBio(await biometricStatus());
+    } catch (e) {
+      setBioError((e as Error).message);
+    } finally {
+      setBioBusy(false);
+    }
+  }
 
   async function chooseServer(url: string) {
     if (url === session.endpoint) return;
@@ -126,6 +168,36 @@ export default function Settings({ nav }: { nav: Nav }) {
           <button className="btn" onClick={() => setRevealOpen(true)}>
             Show recovery phrase
           </button>
+
+          {bio?.platform === true && bio.available ? (
+            <button
+              className="btn"
+              onClick={toggleBiometric}
+              disabled={bioBusy}
+            >
+              {bioBusy
+                ? "Waiting for biometric…"
+                : bioEnrolled
+                  ? "Disable biometric unlock"
+                  : "Enable biometric unlock"}
+            </button>
+          ) : (
+            <div className="hint">
+              {bio?.reason ||
+                "Biometric unlock is only available in the Android app."}
+            </div>
+          )}
+
+          {bioEnrolled && (
+            <div className="hint">
+              Your wallet secret is encrypted by a hardware key in the Android
+              Keystore that requires a strong biometric for every use. Enrolling
+              a new fingerprint invalidates the key and disables biometric
+              unlock.
+            </div>
+          )}
+
+          {bioError && <div className="error">{bioError}</div>}
         </div>
 
         <div className="section-title">Danger zone</div>
@@ -144,7 +216,10 @@ export default function Settings({ nav }: { nav: Nav }) {
               </button>
               <button
                 className="btn danger"
-                onClick={() => {
+                onClick={async () => {
+                  // Drop the Keystore-wrapped copy too, so a deleted wallet
+                  // cannot be reopened through the biometric prompt.
+                  await disableBiometricUnlock();
                   deleteVault();
                   window.location.reload();
                 }}

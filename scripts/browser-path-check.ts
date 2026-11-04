@@ -145,5 +145,133 @@ if (process.argv.includes("--live")) {
   client.close();
 }
 
+// 6. History: direction, confirmation math and fee, against synthetic txs.
+//    A stub client serves pre-built real transactions, so this exercises the
+//    actual parser + prevout resolution without touching the network.
+{
+  const { loadHistory, headerTime } = await import("../src/lib/history");
+  const { p2pkhScript: p2pkh, buildTx } = await import("@radiant-core/sdk");
+
+  // A second, foreign wallet to act as the counterparty.
+  const foreign = HDWallet.fromMnemonic(
+    "legal winner thank year wave sausage worth useful legal winner thank yellow",
+    { network: "mainnet" },
+  );
+  const foreignKey = foreign.deriveKey(0);
+
+  const ours = wallet.deriveKey(0);
+  const change = wallet.deriveKey(0, 1);
+
+  // tx1: foreign -> us, 1 RXD.  (a receive)
+  const funding = buildTx({
+    address: foreignKey.address,
+    wif: foreignKey.wif,
+    inputs: [
+      {
+        txid: "ab".repeat(32),
+        vout: 0,
+        value: rxdToPhotons("2"),
+        script: p2pkh(foreignKey.address),
+      },
+    ],
+    outputs: [{ script: p2pkh(ours.address), value: rxdToPhotons("1") }],
+    feeRate: 10_000n,
+    network: "mainnet",
+  });
+
+  // tx2: us -> foreign, 0.5 RXD.  (a send; change returns to us)
+  const spend = buildTx({
+    address: change.address,
+    wif: ours.wif,
+    inputs: [
+      {
+        txid: funding.txid,
+        vout: 0,
+        value: rxdToPhotons("1"),
+        script: p2pkh(ours.address),
+      },
+    ],
+    outputs: [{ script: p2pkh(foreignKey.address), value: rxdToPhotons("0.5") }],
+    feeRate: 10_000n,
+    network: "mainnet",
+  });
+
+  const tip = 105;
+  // 80-byte header with timestamp 1700000000 at byte offset 68.
+  const ts = 1_700_000_000;
+  const tsLe = Buffer.alloc(4);
+  tsLe.writeUInt32LE(ts, 0);
+  const header =
+    "00".repeat(68) + tsLe.toString("hex") + "ffff7f20" + "00000000";
+
+  check("headerTime parses block time", headerTime(header) === ts, String(ts));
+
+  const stub = {
+    getHistory: async (addr: string) =>
+      addr === ours.address
+        ? [
+            { tx_hash: funding.txid, height: 100 },
+            { tx_hash: spend.txid, height: 101 },
+          ]
+        : [],
+    getTransaction: async (txid: string) => {
+      if (txid === funding.txid) return funding.hex;
+      if (txid === spend.txid) return spend.hex;
+      throw new Error("unknown tx " + txid);
+    },
+    request: async (method: string, ...params: unknown[]) => {
+      if (method === "blockchain.headers.subscribe") return { height: tip };
+      if (method === "blockchain.block.header") return header;
+      throw new Error("unexpected method " + method + " " + params.length);
+    },
+  } as never;
+
+  const result = await loadHistory(
+    stub,
+    [
+      { key: ours, used: true, change: 0 },
+      { key: change, used: true, change: 1 },
+    ],
+    { limit: 10 },
+  );
+
+  check("history returns both txs", result.entries.length === 2, `${result.entries.length}`);
+  check("tip height propagated", result.tipHeight === tip, String(result.tipHeight));
+
+  const incoming = result.entries.find((e) => e.txid === funding.txid)!;
+  const outgoing = result.entries.find((e) => e.txid === spend.txid)!;
+
+  check(
+    "receive detected with correct amount",
+    incoming?.direction === "received" && incoming.net === rxdToPhotons("1"),
+    `${incoming?.direction} ${incoming?.net}`,
+  );
+  check(
+    "receive confirmations = tip - height + 1",
+    incoming?.confirmations === 6,
+    String(incoming?.confirmations),
+  );
+  check(
+    "send detected with negative net",
+    outgoing?.direction === "sent" && outgoing.net < 0n,
+    `${outgoing?.direction} ${outgoing?.net}`,
+  );
+  check(
+    "send confirmations = tip - height + 1",
+    outgoing?.confirmations === 5,
+    String(outgoing?.confirmations),
+  );
+  check(
+    "fee computed for a fully-owned send",
+    typeof outgoing?.fee === "bigint" && outgoing.fee > 0n,
+    String(outgoing?.fee),
+  );
+  check(
+    "block time attached",
+    incoming?.time === ts && outgoing?.time === ts,
+  );
+}
+
 console.log(`\n${failures === 0 ? "ALL BROWSER-PATH CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);
+
