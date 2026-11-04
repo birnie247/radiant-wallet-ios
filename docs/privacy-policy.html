@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Radiant Wallet</title>
+    <style>
+      :root {
+        --bg: #000;
+        --card: #0d1012;
+        --line: #242d33;
+        --text: #fafaff;
+        --body: #cdd0d5;
+        --dim: #898e94;
+        --accent: #00a8e0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--body);
+        font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+      header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+      .mark {
+        width: 34px; height: 34px; border-radius: 8px; background: var(--accent);
+        display: grid; place-items: center; color: #001014; font-weight: 800;
+      }
+      .eyebrow {
+        font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+        color: var(--accent); font-weight: 700;
+      }
+      h1 { color: var(--text); font-size: 30px; line-height: 1.2; margin: 10px 0 4px; }
+      h2 {
+        color: var(--text); font-size: 19px; margin: 34px 0 8px;
+        padding-top: 18px; border-top: 1px solid var(--line);
+      }
+      .updated { color: var(--dim); font-size: 13px; }
+      strong { color: var(--text); }
+      .lede {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: 8px; padding: 16px 18px; margin: 22px 0;
+      }
+      code {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.92em; color: var(--text);
+      }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+      th, td {
+        text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--dim); font-weight: 600; font-size: 13px;
+        text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      a { color: var(--accent); }
+      footer { margin-top: 44px; color: var(--dim); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="mark">R</div>
+        <div class="eyebrow">Radiant Wallet</div>
+      </header>
+
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 4 November 2026</p>
+
+      <div class="lede">
+        <strong>The short version:</strong> Radiant Wallet is a self-custody
+        cryptocurrency wallet. It has no accounts, no analytics, no advertising,
+        and no server of its own. Your recovery phrase is created and encrypted
+        on your device and is never transmitted anywhere.
+      </div>
+
+      <h2>1. Who this applies to</h2>
+      <p>
+        This policy covers the Radiant Wallet Android application
+        (<code>org.radiant.wallet</code>), published by Birnie ("we", "us"). It
+        applies only to that app; it does not cover websites or services you
+        reach from it.
+      </p>
+
+      <h2>2. What we collect</h2>
+      <p>
+        <strong>Nothing.</strong> We do not operate a backend, and the app
+        contains no analytics, crash-reporting, attribution, or advertising SDKs.
+        We never receive your recovery phrase, your private keys, your balances,
+        or any identifier for you or your device.
+      </p>
+
+      <h2>3. Data stored on your device</h2>
+      <table>
+        <tr><th>Data</th><th>Where and why</th></tr>
+        <tr>
+          <td>Your recovery phrase (seed)</td>
+          <td>
+            Encrypted with AES-256-GCM under a key derived from your passphrase
+            (PBKDF2-SHA256, 600,000 iterations) and stored in the app's private
+            storage. If you enable biometric unlock, a second copy is encrypted
+            by a hardware-backed key in the Android Keystore.
+          </td>
+        </tr>
+        <tr>
+          <td>Preferences</td>
+          <td>
+            The Electrum server you picked and whether screenshots are allowed,
+            in the app's private storage.
+          </td>
+        </tr>
+      </table>
+      <p>
+        All of this stays on your device. Uninstalling the app, or using
+        "Delete wallet" in Settings, removes it. We cannot recover it for you —
+        only your written recovery phrase can.
+      </p>
+
+      <h2>4. Network connections</h2>
+      <p>
+        To show balances and broadcast transactions, the app talks directly to
+        public <strong>ElectrumX servers</strong> run by third parties (community
+        operators and the Radiant project), over encrypted WebSocket connections.
+      </p>
+      <p>
+        Those servers necessarily see your IP address and the blockchain
+        addresses you query. That is inherent to how lightweight wallets work, and
+        it is why the app supports switching servers. Their handling of that data
+        is governed by their own policies, not ours. The app does not send your
+        recovery phrase, keys, or passphrase to any server.
+      </p>
+
+      <h2>5. Permissions</h2>
+      <table>
+        <tr><th>Permission</th><th>Why</th></tr>
+        <tr>
+          <td><code>INTERNET</code></td>
+          <td>To reach public ElectrumX servers.</td>
+        </tr>
+        <tr>
+          <td><code>USE_BIOMETRIC</code></td>
+          <td>
+            Only if you turn on biometric unlock, to unlock the wallet with your
+            fingerprint or face. Biometric data is handled by Android and is never
+            available to the app.
+          </td>
+        </tr>
+      </table>
+      <p>
+        The app requests no location, camera, microphone, contacts, or storage
+        access, and collects no advertising identifiers.
+      </p>
+
+      <h2>6. Children</h2>
+      <p>
+        The app is not directed at children and is not intended for use by anyone
+        under 18.
+      </p>
+
+      <h2>7. Your rights</h2>
+      <p>
+        Because we hold no personal data about you, there is nothing for us to
+        disclose, correct, export, or delete on request. You exercise full control
+        locally: view or export your recovery phrase in Settings, and delete all
+        wallet data with "Delete wallet" or by uninstalling.
+      </p>
+
+      <h2>8. Changes</h2>
+      <p>
+        If this policy changes, the updated version will be published at this URL
+        with a new "last updated" date. Material changes will also be noted in the
+        app's release notes.
+      </p>
+
+      <h2>9. Contact</h2>
+      <p>
+        Questions about this policy:
+        <a href="mailto:birnie@915mhz.ca">birnie@915mhz.ca</a>
+      </p>
+
+      <footer>
+        Radiant Wallet is an independent, open-source client for the Radiant
+        (RXD) blockchain. It is not affiliated with or endorsed by the Radiant
+        Foundation.
+      </footer>
+    </main>
+  </body>
+</html>
