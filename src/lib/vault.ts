@@ -20,7 +20,7 @@
  * filesystem inspection. It does NOT protect against a rooted device with a
  * memory dumper. See README "Security model".
  */
-import type { NetworkName } from "@radiant-core/sdk";
+import { RADIANT_COIN_TYPE, type NetworkName } from "@radiant-core/sdk";
 
 const STORAGE_KEY = "rxd.wallet.vault.v1";
 
@@ -35,6 +35,31 @@ const MAX_ITERATIONS = 5_000_000;
 
 export const MIN_PASSPHRASE_LENGTH = 12;
 
+/**
+ * Seed derivation family.
+ *
+ * `radiant` is BIP44 coin type 512 (`m/44'/512'/…`), the default for wallets
+ * created in this app. `legacy` is coin type 0 (`m/44'/0'/…`) — the derivation
+ * of every seed created before Radiant moved to coin type 512, which is what a
+ * "v1" seed from an older wallet restores.
+ */
+export type Derivation = "radiant" | "legacy";
+
+/** SLIP-0044 coin type behind each derivation family. */
+export const COIN_TYPE_LEGACY = 0;
+
+/** Coin type for a derivation family; absent means Radiant (512). */
+export function coinTypeFor(derivation?: Derivation): number {
+  return derivation === "legacy" ? COIN_TYPE_LEGACY : RADIANT_COIN_TYPE;
+}
+
+/** Human label for a derivation family, used in the UI and in Settings. */
+export function derivationLabel(derivation?: Derivation): string {
+  return derivation === "legacy"
+    ? "Legacy v1 (coin type 0)"
+    : "Radiant (coin type 512)";
+}
+
 export interface WalletSecrets {
   mnemonic: string;
   network: NetworkName;
@@ -42,6 +67,8 @@ export interface WalletSecrets {
   server: string;
   label: string;
   createdAt: number;
+  /** Derivation family of the seed; absent means `radiant` (coin type 512). */
+  derivation?: Derivation;
 }
 
 export interface StoredVault {

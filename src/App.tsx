@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HDWallet } from "@radiant-core/sdk";
 import { hasVault, unlockVault, type WalletSecrets } from "./lib/vault";
-import { connect, crossCheckTip, scanWallet } from "./lib/wallet";
+import { connect, crossCheckTip, scanWallet, walletFor } from "./lib/wallet";
 import { getPreferredServer } from "./lib/servers";
 import { loadHistory, type HistoryEntry } from "./lib/history";
 import { unlockWithBiometric } from "./lib/biometric";
@@ -107,9 +106,7 @@ export default function App() {
         (url) => setBusy(`Connecting to ${url.replace("wss://", "")}…`),
       );
 
-      const wallet = HDWallet.fromMnemonic(secrets.mnemonic, {
-        network: secrets.network,
-      });
+      const wallet = walletFor(secrets);
 
       setBusy("Scanning the blockchain…");
       const scan = await scanWallet(client, wallet, {

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { HDWallet, type NetworkName } from "@radiant-core/sdk";
-import { checkPassphrase, saveVault, type WalletSecrets } from "../lib/vault";
+import {
+  checkPassphrase,
+  coinTypeFor,
+  saveVault,
+  type Derivation,
+  type WalletSecrets,
+} from "../lib/vault";
 import { useSecureScreen } from "../lib/useSecureScreen";
 
 type Step = "welcome" | "create" | "restore" | "passphrase";
@@ -18,6 +24,8 @@ export default function Onboarding({
   const [mnemonic, setMnemonic] = useState("");
   const [restoreInput, setRestoreInput] = useState("");
   const [network, setNetwork] = useState<NetworkName>("mainnet");
+  /** Derivation family of the seed being imported; new wallets always use 512. */
+  const [derivation, setDerivation] = useState<Derivation>("radiant");
   const [passphrase, setPassphrase] = useState("");
   const [repeat, setRepeat] = useState("");
   const [savedSeed, setSavedSeed] = useState(false);
@@ -31,6 +39,9 @@ export default function Onboarding({
 
   async function startCreate() {
     setError("");
+    // A wallet created here is always coin type 512, whatever was last picked
+    // on the restore screen.
+    setDerivation("radiant");
     // Await the flag BEFORE the seed is painted — an effect would run after
     // paint and leave a capturable frame.
     await secure.hold();
@@ -61,7 +72,10 @@ export default function Onboarding({
       return;
     }
     try {
-      HDWallet.fromMnemonic(candidate, { network });
+      HDWallet.fromMnemonic(candidate, {
+        network,
+        coinType: coinTypeFor(derivation),
+      });
     } catch {
       setError(
         "That recovery phrase is not valid — check the words and spelling.",
@@ -93,6 +107,7 @@ export default function Onboarding({
         server: "",
         label: "Radiant",
         createdAt: Date.now(),
+        derivation,
       };
       await saveVault(passphrase, secrets);
       await onReady(secrets);
@@ -218,6 +233,10 @@ export default function Onboarding({
             </div>
           </div>
           <NetworkPicker network={network} setNetwork={setNetwork} />
+          <DerivationPicker
+            derivation={derivation}
+            setDerivation={setDerivation}
+          />
           {error && <div className="error">{error}</div>}
           <button className="btn primary" onClick={() => void acceptRestore()}>
             Continue
@@ -270,6 +289,41 @@ export default function Onboarding({
         <button className="btn primary" onClick={finish} disabled={working}>
           {working ? "Creating wallet…" : "Create wallet"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function DerivationPicker({
+  derivation,
+  setDerivation,
+}: {
+  derivation: Derivation;
+  setDerivation: (d: Derivation) => void;
+}) {
+  return (
+    <div className="field">
+      <label>Seed derivation</label>
+      <div className="btn-row">
+        <button
+          className={`btn small ${derivation === "radiant" ? "primary" : ""}`}
+          style={{ flex: 1 }}
+          onClick={() => setDerivation("radiant")}
+        >
+          Radiant (512)
+        </button>
+        <button
+          className={`btn small ${derivation === "legacy" ? "primary" : ""}`}
+          style={{ flex: 1 }}
+          onClick={() => setDerivation("legacy")}
+        >
+          Legacy v1 (0)
+        </button>
+      </div>
+      <div className="hint">
+        {derivation === "legacy"
+          ? "Coin type 0 (m/44'/0'/…) — for seeds created before Radiant moved to coin type 512. The addresses only match if the old wallet used this derivation."
+          : "Coin type 512 (m/44'/512'/…) — the derivation this app uses for every wallet it creates."}
       </div>
     </div>
   );

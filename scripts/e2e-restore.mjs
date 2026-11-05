@@ -32,7 +32,7 @@ const check = (label, ok, detail = "") => {
 };
 
 /** Runs the restore flow with `phrase` and reports what the UI did. */
-async function runRestore(cdp, phrase, label) {
+async function runRestore(cdp, phrase, label, derivation) {
   await cdp.send("Page.navigate", { url: `http://localhost:${PORT}/` });
   await cdp.waitForSelector("#root .app", 20_000);
 
@@ -43,6 +43,9 @@ async function runRestore(cdp, phrase, label) {
     throw new Error("textarea not found");
   }
   await cdp.fill("textarea", phrase);
+  if (derivation && !(await cdp.clickButton(derivation))) {
+    throw new Error(`derivation button not found: ${derivation}`);
+  }
   await sleep(150);
   if (!(await cdp.clickButton("Continue"))) {
     throw new Error("continue button not found");
@@ -70,12 +73,18 @@ try {
   const cases = [
     { phrase: VALID_12, label: "valid 12-word BIP39 vector", expectPass: true },
     { phrase: VALID_24, label: "valid 24-word BIP39 vector", expectPass: true },
+    {
+      phrase: VALID_12,
+      label: "valid vector with the legacy v1 derivation",
+      expectPass: true,
+      derivation: "Legacy v1",
+    },
     { phrase: BAD_CHECKSUM, label: "bad checksum (12x abandon)", expectPass: false },
     { phrase: THIRTEEN, label: "13 words", expectPass: false },
   ];
 
   for (const c of cases) {
-    const state = await runRestore(cdp, c.phrase, c.label);
+    const state = await runRestore(cdp, c.phrase, c.label, c.derivation);
     if (c.expectPass) {
       check(`${c.label} -> passphrase screen`, state.onPassphrase === true);
     } else {

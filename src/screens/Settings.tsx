@@ -277,7 +277,10 @@ export default function Settings({ nav }: { nav: Nav }) {
           <div className="row">
             <div className="grow">
               <div className="title">Derivation</div>
-              <div className="sub">BIP44 m/44'/512'/account'/change/index</div>
+              <div className="sub">
+                BIP44 m/44'/{session.wallet.coinType}'/account'/change/index
+                {session.wallet.coinType === 0 ? " · legacy v1 seed" : ""}
+              </div>
             </div>
           </div>
           <div className="row">

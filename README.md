@@ -24,6 +24,7 @@ app-local Swift plugins (`plugins/`).
 | --- | --- |
 | Create wallet (BIP39 12-word) with encrypted backup | ✅ verified |
 | Restore from 12/15/18/21/24-word phrase (checksum validated) | ✅ verified |
+| Restore legacy (v1) seeds — BIP44 coin type 0 | ✅ verified |
 | Encrypted seed at rest (AES-256-GCM, PBKDF2-SHA256 600k, 12-char min) | ✅ implemented |
 | BIP44 discovery, gap limit 20, receive + change chains | ✅ verified |
 | Live balance / UTXO fetch over ElectrumX WebSocket | ✅ verified vs mainnet and on device |
@@ -61,6 +62,7 @@ silently derives the wrong addresses or burns tokens.
 | --- | --- |
 | Address format | Base58 only — P2PKH `0x00` (`1…`), P2SH `0x05` (`3…`). **No SegWit/bech32** |
 | HD path | `m/44'/512'/account'/change/index` (SLIP-0044 coin type **512**) |
+| Legacy (v1) seeds | `m/44'/0'/account'/change/index` — coin type 0, selected at restore time |
 | Base unit | 1 RXD = **100,000,000 photons** |
 | Signing | `SIGHASH_ALL \| FORKID` = `0x41` |
 | Chain access | ElectrumX over **WebSocket** (`wss://`): `electrumx.radiant4people.com:50022` |
@@ -303,7 +305,9 @@ with near-match suggestions. Nothing leaves the machine.
 built bundle in a headless Chromium over CDP, clicks *Restore from recovery
 phrase*, fills the field and asserts the outcome for the standard BIP39 test
 vectors — valid 12- and 24-word phrases must reach the passphrase step, a bad
-checksum and a 13-word phrase must be rejected with the UI's own messages.
+checksum and a 13-word phrase must be rejected with the UI's own messages. One
+of the valid cases is restored with the **Legacy v1 (coin type 0)** derivation
+selected, which exercises the second derivation path end to end.
 
 `check:connect` is the one that catches a broken chain connection: it creates a
 wallet in the real bundle, protects it, and then prints a timeline of every

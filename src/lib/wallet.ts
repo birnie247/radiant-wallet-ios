@@ -29,6 +29,22 @@ import {
   type Utxo,
 } from "@radiant-core/sdk";
 import { candidateServers, findServer, independentServers } from "./servers";
+import { coinTypeFor, type WalletSecrets } from "./vault";
+
+/**
+ * Builds the HD wallet described by a seed.
+ *
+ * The derivation family travels with the secrets, so a legacy (coin type 0)
+ * seed keeps deriving the same addresses on every unlock, scan and spend.
+ */
+export function walletFor(
+  secrets: Pick<WalletSecrets, "mnemonic" | "network" | "derivation">,
+): HDWallet {
+  return HDWallet.fromMnemonic(secrets.mnemonic, {
+    network: secrets.network,
+    coinType: coinTypeFor(secrets.derivation),
+  });
+}
 
 export const GAP_LIMIT = 20;
 export const HARD_ADDRESS_CAP = 200;

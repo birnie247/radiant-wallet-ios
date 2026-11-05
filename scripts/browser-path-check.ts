@@ -15,9 +15,11 @@ import {
   connect,
   crossCheckTip,
   scanWallet,
+  walletFor,
   MAX_TIP_DRIFT,
 } from "../src/lib/wallet";
 import { formatRxd, parseRxd } from "../src/lib/money";
+import { coinTypeFor } from "../src/lib/vault";
 import type { ScanResult } from "../src/lib/wallet";
 
 const MNEMONIC =
@@ -37,6 +39,33 @@ check(
   "known test-vector address",
   k0.address === "18qiat9Kff5niCcincht6efD8HhFfzL1AJ",
   k0.address,
+);
+
+// 1b. Legacy (v1) seeds: coin type 0 instead of 512.
+const legacyWallet = walletFor({
+  mnemonic: MNEMONIC,
+  network: "mainnet",
+  derivation: "legacy",
+});
+const legacy0 = legacyWallet.deriveKey(0);
+check("legacy derivation path", legacy0.path === "m/44'/0'/0'/0/0", legacy0.path);
+check("legacy coin type", legacyWallet.coinType === 0, String(legacyWallet.coinType));
+check(
+  "legacy address differs from the coin-type-512 one",
+  legacy0.address !== k0.address,
+  legacy0.address,
+);
+check(
+  "legacy address is a base58 P2PKH address",
+  /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(legacy0.address) &&
+    p2pkhScript(legacy0.address).startsWith("76a914"),
+  legacy0.address,
+);
+check("coinTypeFor(undefined) is 512", coinTypeFor(undefined) === 512);
+check("coinTypeFor('legacy') is 0", coinTypeFor("legacy") === 0);
+check(
+  "walletFor honours the derivation",
+  walletFor({ mnemonic: MNEMONIC, network: "mainnet" }).address(0) === k0.address,
 );
 
 // 2. CSPRNG (Web Crypto path) — must produce a fresh 12-word mnemonic.
