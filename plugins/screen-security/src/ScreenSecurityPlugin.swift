@@ -15,6 +15,16 @@ import Capacitor
  * A manual screenshot (volume + side button) cannot be detected or blocked
  * on iOS — the JS layer documents that in the UI instead.
  *
+ * Capture detection (current SDK, where UIScreen.captured and its
+ * notification were removed):
+ *   - iOS 17+: the scene's capture state is a UITraitCollection trait
+ *     (sceneCaptureState). The overlay view stays mounted while protection
+ *     is held (transparent when idle) and observes traitCollectionDidChange
+ *     on itself.
+ *   - iOS 15/16: the legacy UIScreenCapturedDidChange notification is
+ *     referenced by its string value (the SDK symbol is gone) and the state
+ *     is read from the window's screen.
+ *
  * The JS side raises protection only while a recovery phrase is on screen
  * (and optionally app-wide, see src/lib/screenSecurity.ts). Fail-safe
  * direction matches the Android implementation: if a release is ever missed
@@ -34,10 +44,15 @@ public class ScreenSecurityPlugin: CAPPlugin, CAPBridgedPlugin {
     /** Tag so a second overlay can never be stacked on the first. */
     private static let overlayTag = 987_654_321
 
+    /// Legacy capture notification, referenced by string because the
+    /// UIScreen.capturedDidChangeNotification symbol was removed from the
+    /// current SDK.
+    private static let capturedDidChange = Notification.Name("UIScreenCapturedDidChange")
+
     /// Whether the JS layer currently holds protection.
     private var secure = false
     private var observing = false
-    private var overlay: UIView?
+    private var overlay: CaptureSentinelView?
 
     // MARK: - JS API
 
@@ -61,79 +76,134 @@ public class ScreenSecurityPlugin: CAPPlugin, CAPBridgedPlugin {
         guard secure != enabled else { return }
         secure = enabled
         if enabled {
-            startObserving()
-            updateOverlay()
+            installOverlay()
         } else {
-            hideOverlay()
             stopObserving()
+            removeOverlay()
         }
     }
+
+    /**
+     * The overlay is kept mounted for as long as protection is held, in two
+     * visual states: transparent (capture idle) and black (capture in
+     * progress). On iOS 17+ it is also the receiver of the capture-state
+     * trait, so it cannot simply be removed when capture stops.
+     */
+    private func installOverlay() {
+        guard overlay == nil, let host = hostView() else { return }
+
+        let layer = CaptureSentinelView(frame: host.bounds)
+        layer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        layer.backgroundColor = .clear
+        // Never swallow touches — the overlay is a mirror, not an input
+        // surface; the app underneath keeps working while it is transparent.
+        layer.isUserInteractionEnabled = false
+        layer.tag = ScreenSecurityPlugin.overlayTag
+        layer.onCaptureStateChanged = { [weak self] in self?.updateOverlayState() }
+
+        host.addSubview(layer)
+        host.bringSubviewToFront(layer)
+        overlay = layer
+
+        startObserving()
+        updateOverlayState()
+    }
+
+    private func hostView() -> UIView? {
+        if let view = bridge?.viewController?.view { return view }
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first
+        return window?.rootViewController?.view
+    }
+
 
     private func startObserving() {
         guard !observing else { return }
         observing = true
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(screenCapturedDidChange),
-            name: UIScreen.capturedDidChangeNotification,
-            object: nil
-        )
+        if #unavailable(iOS 17.0) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(capturedDidChangeNotified),
+                name: ScreenSecurityPlugin.capturedDidChange,
+                object: nil
+            )
+        }
     }
 
     private func stopObserving() {
         guard observing else { return }
         observing = false
-        NotificationCenter.default.removeObserver(
-            self,
-            name: UIScreen.capturedDidChangeNotification,
-            object: nil
-        )
+        if #unavailable(iOS 17.0) {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: ScreenSecurityPlugin.capturedDidChange,
+                object: nil
+            )
+        }
     }
 
-    @objc private func screenCapturedDidChange() {
-        updateOverlay()
+    @objc private func capturedDidChangeNotified() {
+        updateOverlayState()
     }
 
-    /// Show or hide the overlay to match (secure && capturing right now).
-    private func updateOverlay() {
-        if secure && UIScreen.main.captured {
-            showOverlay()
+    private func screenIsCaptured() -> Bool {
+        if #available(iOS 17.0, *) {
+            return overlay?.traitCollection.sceneCaptureState == .active
         } else {
-            hideOverlay()
+            let screen = overlay?.window?.windowScene?.screen ?? UIScreen.main
+            return screen.isCaptured
         }
     }
 
-    private func showOverlay() {
-        guard overlay == nil,
-              let host = bridge?.bridgedViewController?.view
-                ?? webView?.window?.rootViewController?.view else {
-            return
-        }
-
-        let layer = UIView(frame: host.bounds)
-        layer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        layer.backgroundColor = .black
-        layer.tag = ScreenSecurityPlugin.overlayTag
-
-        let label = UILabel(frame: .zero)
-        label.text = "Screen capture in progress — content hidden"
-        label.textColor = UIColor(white: 0.6, alpha: 1.0)
-        label.font = .systemFont(ofSize: 13)
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        layer.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: layer.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: layer.centerYAnchor),
-        ])
-
-        host.addSubview(layer)
-        host.bringSubviewToFront(layer)
-        overlay = layer
+    private func updateOverlayState() {
+        guard secure, let overlay else { return }
+        overlay.setCaptured(screenIsCaptured())
     }
 
-    private func hideOverlay() {
+    private func removeOverlay() {
         overlay?.removeFromSuperview()
         overlay = nil
+    }
+}
+
+/**
+ * Full-window mirror that serves two purposes: covers the content with
+ * black while capture is in progress, and (on iOS 17+) receives the
+ * sceneCaptureState trait change that signals capture starting and stopping.
+ */
+private final class CaptureSentinelView: UIView {
+    var onCaptureStateChanged: (() -> Void)?
+    private var label: UILabel?
+
+    func setCaptured(_ captured: Bool) {
+        backgroundColor = captured ? .black : .clear
+        if captured {
+            guard label == nil else { return }
+            let l = UILabel(frame: .zero)
+            l.text = "Screen capture in progress — content hidden"
+            l.textColor = UIColor(white: 0.6, alpha: 1.0)
+            l.font = .systemFont(ofSize: 13)
+            l.textAlignment = .center
+            l.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(l)
+            NSLayoutConstraint.activate([
+                l.centerXAnchor.constraint(equalTo: centerXAnchor),
+                l.centerYAnchor.constraint(equalTo: centerYAnchor),
+            ])
+            label = l
+        } else {
+            label?.removeFromSuperview()
+            label = nil
+        }
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        // Any trait refresh re-evaluates the capture state; on iOS 17+ this
+        // is where sceneCaptureState changes are observed.
+        if #available(iOS 17.0, *) {
+            onCaptureStateChanged?()
+        }
     }
 }
