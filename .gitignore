@@ -22,6 +22,8 @@ check-*.txt
 cap-*.txt
 dom*.html
 .smoke-profile/
+.e2e-profile/
+.swiftpm/
 
 # editor / OS
 .vscode/

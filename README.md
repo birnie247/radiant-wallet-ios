@@ -249,12 +249,28 @@ npm run check:smoke     # loads the REAL built bundle in headless Chrome
 npm run check:live      # live ElectrumX read + offline tx build (network required)
 npm run probe           # which endpoints answer a handshake right now
 node scripts/check-multisign.mjs   # proves input-index ↔ key pairing
+npm run check:phrase    # offline BIP39 phrase checker (reads stdin, never echoes)
+npm run check:restore   # E2E: drives the restore screen in a real browser (CDP)
 
 # native compile gate (macOS):
 cd ios/App && xcodebuild -project App.xcodeproj -scheme App \
   -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 ```
+
+`check:phrase` covers the "the app says my recovery phrase is invalid" case: it
+validates the word count, BIP39 membership and the checksum locally, hides your
+typing, never repeats any of the words, and names the position of a bad word
+with near-match suggestions. Nothing leaves the machine.
+
+`check:restore` is the end-to-end proof of the restore path: it drives the real
+built bundle in a headless Chromium over CDP, clicks *Restore from recovery
+phrase*, fills the field and asserts the outcome for the standard BIP39 test
+vectors — valid 12- and 24-word phrases must reach the passphrase step, a bad
+checksum and a 13-word phrase must be rejected with the UI's own messages.
+
+`check:smoke` needs a Chromium-based browser — Chrome, Brave, Edge and Chromium
+are detected at the usual paths; set `CHROME_PATH` to point at a different one.
 
 `check:smoke` is the one that decides whether the app actually runs: it serves
 `dist/` and loads it in headless Chrome, failing if `#root` never renders or an

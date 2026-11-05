@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { findBrowser } from "./find-browser.mjs";
 
 const DIST = path.resolve(process.env.SMOKE_DIST ?? "dist");
 const PORT = 4189;
@@ -29,27 +30,6 @@ const MIME = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
-
-const CHROME_CANDIDATES = [
-  process.env.CHROME_PATH,
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-].filter(Boolean);
-
-function findBrowser() {
-  for (const candidate of CHROME_CANDIDATES) {
-    if (existsSync(candidate)) return candidate;
-  }
-  throw new Error(
-    "No Chrome/Edge found. Set CHROME_PATH to a Chromium-based browser.",
-  );
-}
 
 function runBrowser(browser, url) {
   return new Promise((resolve, reject) => {
