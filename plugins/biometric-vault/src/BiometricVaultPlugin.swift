@@ -97,8 +97,9 @@ public class BiometricVaultPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let key = SymmetricKey(size: .bits256)
         let rawKey = key.withUnsafeBytes { Data($0) }
-        guard storeKey(rawKey, alias: alias) else {
-            call.reject("Could not create the biometric-protected key")
+        let keyStore = storeKey(rawKey, alias: alias)
+        guard keyStore.ok else {
+            call.reject("Could not create the biometric-protected key — \(keyStore.detail)")
             return
         }
 
@@ -187,23 +188,70 @@ public class BiometricVaultPlugin: CAPPlugin, CAPBridgedPlugin {
         ]
     }
 
-    private func makeAccessControl() -> SecAccessControl? {
-        var error: Unmanaged<CFError>?
-        return SecAccessControlCreateWithFlags(
+    private struct StoreResult {
+        let ok: Bool
+        let detail: String
+    }
+
+    /**
+     * Stores the key material under a biometryCurrentSet access control.
+     *
+     * The protection class is carried by the access control itself; passing
+     * kSecAttrAccessible alongside it is an attribute combination iOS can
+     * reject with errSecParam. Both packings are attempted, and the real
+     * OSStatus is reported — "it did not work" is not diagnosable.
+     */
+    private func storeKey(_ rawKey: Data, alias: String) -> StoreResult {
+        var cfError: Unmanaged<CFError>?
+        guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             .biometryCurrentSet,
-            &error
+            &cfError
+        ) else {
+            let reason = (cfError?.takeRetainedValue() as Error?)?.localizedDescription
+                ?? "unknown error"
+            return StoreResult(ok: false, detail: "access control: \(reason)")
+        }
+
+        var query = keyQuery(alias: alias)
+        query[kSecValueData as String] = rawKey
+        query[kSecAttrAccessControl as String] = accessControl
+
+        // Variant A: access control only — the protection class is inside it.
+        let first = SecItemAdd(query as CFDictionary, nil)
+        if first == errSecSuccess { return StoreResult(ok: true, detail: "") }
+
+        // Variant B: also pass the protection class explicitly.
+        var withAccessible = query
+        withAccessible[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let second = SecItemAdd(withAccessible as CFDictionary, nil)
+        if second == errSecSuccess { return StoreResult(ok: true, detail: "") }
+
+        return StoreResult(
+            ok: false,
+            detail: "OSStatus \(first)/\(second) \(Self.hint(second))"
         )
     }
 
-    private func storeKey(_ rawKey: Data, alias: String) -> Bool {
-        guard let accessControl = makeAccessControl() else { return false }
-        var query = keyQuery(alias: alias)
-        query[kSecValueData as String] = rawKey
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        query[kSecAttrAccessControl as String] = accessControl
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+    /** Plain-language hint for the common keychain failures. */
+    private static func hint(_ status: OSStatus) -> String {
+        switch status {
+        case errSecParam:
+            return "invalid attribute combination"
+        case errSecMissingEntitlement:
+            return "keychain entitlement missing"
+        case errSecAuthFailed:
+            return "authentication failed, or the device has no passcode"
+        case errSecDuplicateItem:
+            return "item already exists"
+        case errSecNotAvailable:
+            return "keychain unavailable while the device is locked"
+        case errSecInteractionNotAllowed:
+            return "interaction not allowed"
+        default:
+            return "unexpected keychain status"
+        }
     }
 
     /**
