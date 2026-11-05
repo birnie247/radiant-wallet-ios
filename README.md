@@ -26,27 +26,28 @@ app-local Swift plugins (`plugins/`).
 | Restore from 12/15/18/21/24-word phrase (checksum validated) | ✅ verified |
 | Encrypted seed at rest (AES-256-GCM, PBKDF2-SHA256 600k, 12-char min) | ✅ implemented |
 | BIP44 discovery, gap limit 20, receive + change chains | ✅ verified |
-| Live balance / UTXO fetch over ElectrumX WebSocket | ✅ verified vs mainnet |
+| Live balance / UTXO fetch over ElectrumX WebSocket | ✅ verified vs mainnet and on device |
 | Ref-safe send with review screen | ✅ signing verified offline |
 | Broadcast | ⚠️ implemented, not exercised with real funds |
-| Mainnet / testnet, server switch with failover | ✅ implemented |
+| Mainnet / testnet, server switch with failover | ✅ verified (raced attempts, per-endpoint errors) |
 | Reveal recovery phrase behind passphrase re-entry | ✅ implemented |
 | Auto-lock after 60 s in background | ✅ implemented |
 | QR code display for receiving | ✅ implemented |
 | Transaction history with confirmation counts | ✅ verified against synthetic txs |
-| Biometric unlock (iOS Keychain + Face ID / Touch ID) | ✅ compiles (CI); not device-run |
-| Recovery phrase blocks screen recording & mirroring | ✅ compiles (CI); not device-run |
+| Biometric unlock (iOS Keychain + Face ID / Touch ID) | ✅ verified on a physical iPhone |
+| Recovery phrase blocks screen recording & mirroring | ✅ implemented — one live recording pending |
 | **QR scanning, Glyph tokens, WAVE names, price** | ❌ not yet |
 
 > **Honest caveat:** no transaction has been broadcast to mainnet from this code
 > by me, because that requires funds. Everything up to and including a valid
 > signature is verified. Treat the first real send as a test: start small.
 
-> **iOS platform caveat:** the two native plugins compile for the iOS
-> simulator in CI, but have not been exercised on a physical iPhone yet — a
-> real Face ID / Touch ID prompt and a real screen recording are the remaining
-> device tests. Everything fails safe — biometric errors fall back to the
-> passphrase.
+> **Where this has run:** built, installed and exercised on an iPhone 15 Pro Max
+> running iOS 27.0.1, signed with a free personal team — create, restore, live
+> connection and scan (2–3 s), Face ID enrollment and unlock. Still unconfirmed
+> on hardware: the capture overlay during an actual screen recording, and a
+> mainnet broadcast with real funds. Everything fails safe — biometric errors
+> fall back to the passphrase.
 
 ---
 
@@ -62,7 +63,8 @@ silently derives the wrong addresses or burns tokens.
 | HD path | `m/44'/512'/account'/change/index` (SLIP-0044 coin type **512**) |
 | Base unit | 1 RXD = **100,000,000 photons** |
 | Signing | `SIGHASH_ALL \| FORKID` = `0x41` |
-| Chain access | ElectrumX over **WebSocket**: `electrumx.radiant4people.com:50022` |
+| Chain access | ElectrumX over **WebSocket** (`wss://`): `electrumx.radiant4people.com:50022` |
+| Electrum protocol | `server.version` negotiated with range **1.4–1.4.3**; servers reject `1.0` |
 | Node P2P port | 7333 |
 
 ### The two places a naive wallet loses money
@@ -84,13 +86,28 @@ addresses and the WIF array must stay in the same order as the inputs, or the
 signature is produced by the wrong key and the transaction is rejected.
 `scripts/check-multisign.mjs` pins this down with a live multi-input tx.
 
-### Dead servers (do not reintroduce)
+### Endpoint liveness
 
 The endpoints published in `@radiant-core/constants` are stale — both
 `electrum.radiant.ovh` and `electrum.radiantblockchain.org` **no longer resolve
 in DNS**, and `electrumx.radiantcore.org` accepts TCP but never completes a TLS
-handshake. `src/lib/servers.ts` uses Photonic's production list instead. Run
-`npm run probe` to re-check which endpoints are alive.
+handshake. `src/lib/servers.ts` uses Photonic's production list instead.
+
+Liveness across that list is uneven. At the last probe only the two
+`*.radiant4people.com` endpoints answered (both with valid Let's Encrypt
+certificates); the three `*.bladenet.online` endpoints and
+`radiantcore.org:50004` timed out. `connect()` therefore races candidates in
+waves rather than walking the list in order: a dead host costs a bounded few
+seconds instead of a full timeout each, and a healthy server wins in well under
+a second.
+
+`npm run probe` reports which endpoints answer right now, and
+`npm run check:connect` exercises the app's own connection path end to end.
+
+When no endpoint can be reached, the app does not fall back to the onboarding
+screen: it shows *"Could not open the wallet"* with the reason for each endpoint
+it tried, plus **Try again**. The vault on the device is never touched by a
+connection failure.
 
 ---
 
@@ -99,7 +116,7 @@ handshake. `src/lib/servers.ts` uses Photonic's production list instead. Run
 ```
 src/
   lib/
-    wallet.ts     HD discovery, balance aggregation, ref-safe payment building
+    wallet.ts     HD discovery, racing endpoint connect, ref-safe payment building
     vault.ts      AES-256-GCM + PBKDF2 encrypted seed storage
     biometric.ts  JS bridge to the native Keychain/LAContext plugin
     screenSecurity.ts  ref-counted screen-capture overlay toggling
@@ -119,9 +136,9 @@ src/
   shims/          browser replacements for Node internals (see below)
 plugins/
   biometric-vault/      app-local Capacitor plugin (Swift package)
-    BiometricVaultPlugin.swift   Keychain AES-256-GCM key gated by Face ID / Touch ID
+    BiometricVaultPlugin.swift   CryptoKit AES-256-GCM, Keychain key gated by Face ID / Touch ID
   screen-security/      app-local Capacitor plugin (Swift package)
-    ScreenSecurityPlugin.swift   screen-recording overlay
+    ScreenSecurityPlugin.swift   capture overlay driven by the sceneCaptureState trait
 ios/
   App/                  Xcode project (WKWebView + Capacitor via SwiftPM)
     App/Info.plist      NSFaceIDUsageDescription + scene manifest
@@ -132,6 +149,13 @@ scripts/
   check-multisign.mjs    multi-address signing-order proof
   live-e2e.mjs           live ElectrumX read + offline tx build
   probe-servers.mjs      liveness probe for every endpoint
+  probe-ws.mjs           raw wss:// probe from a browser context
+  check-phrase.mjs       offline BIP39 phrase checker
+  e2e-restore.mjs        restore screen end to end (CDP)
+  e2e-connect.mjs        create -> connect -> scan end to end, with a timeline
+  smoke-browser.mjs      loads the built bundle and asserts it mounts
+  find-browser.mjs       locates Chrome / Brave / Edge / Chromium
+  lib/browser-harness.mjs static server + CDP client shared by the E2E scripts
   build-ios-icons.mjs    app icon from the official Radiant mark
   release-ios.mjs        one-command release archive
 ```
@@ -172,8 +196,8 @@ Three things came out of that:
 2. `index.html` now has a **startup watchdog**: if the bundle throws or never
    mounts, the real error (message, stack, WebView UA) is rendered on screen
    instead of a silent black page. A wallet should fail loudly.
-3. `npm run check:smoke` — serves the built bundle and loads it in headless
-   Chrome, asserting the app actually mounts and no uncaught error occurred. It
+3. `npm run check:smoke` — serves the built bundle and loads it in a headless
+   browser, asserting the app actually mounts and no uncaught error occurred. It
    is now a CI gate, and it is verified to *fail* on the broken bundle.
 
 None of this was guessed: `npm run check:browser` builds the app's real module
@@ -196,8 +220,10 @@ iPhone. Web Crypto and WebSocket both work over `localhost`.
 
 ## Build the app (iOS)
 
-**Requirements:** a Mac with **Xcode** installed. If Xcode was just installed,
-accept its license once:
+**Requirements:** a Mac with **Xcode 27** (the iOS 27 SDK) and Node 20+. The app
+targets **iOS 15+**; on iOS 17 and later the capture overlay reads the
+`sceneCaptureState` trait, older versions use the legacy screen notification.
+If Xcode was just installed, accept its license once:
 
 ```bash
 sudo xcodebuild -license accept
@@ -213,24 +239,28 @@ This is what keeps the Swift side from rotting.
 
 ```bash
 npm install
-npm run build
-npx cap sync ios
+npm run sync         # tsc + vite build, then cap sync ios
 npm run ios          # opens the Xcode project
 ```
 
 Then pick the simulator (or your phone) as the destination and press **Run**
 (⌘R). First launch takes a moment while SwiftPM resolves the Capacitor
-framework.
+framework. Running in the Simulator needs an installed iOS runtime
+(*Xcode → Settings → Components*); a physical iPhone does not.
 
 ## Installing on your own iPhone
 
 The straightforward path is Xcode's automatic signing:
 
 1. In Xcode, select the **App** target → *Signing & Capabilities* → your team
-   (a free Apple ID works).
-2. Plug in your iPhone, select it as the destination, **Run**.
-3. On the phone, trust the developer certificate
-   (*Settings → General → VPN & Device Management*) if prompted.
+   (a free Apple ID works — Xcode creates the certificate and profile on the
+   first signed build).
+2. Plug in your iPhone, unlock it and trust the computer.
+3. Turn on **Developer Mode** (*Settings → Privacy & Security → Developer
+   Mode*), then restart the phone.
+4. Select the phone as the destination and **Run**. A developer build has to be
+   trusted once on the device: *Settings → General → VPN & Device Management →
+   your Apple ID → Trust*.
 
 Notes:
 
@@ -238,14 +268,18 @@ Notes:
   Apple Developer Program membership ($99/yr) removes the expiry and is what
   the App Store path needs.
 - **Updates in place** require the same signing team + bundle id
-  (`org.radiant.wallet.ios`); the wallet data survives. A different team
-  erases the local vault — your recovery phrase is the real backup, not the app.
+  (`org.radiant.wallet.ios`) so the Keychain items stay readable by the app. A
+  different team, or deleting the app, starts from an empty vault — your
+  recovery phrase is the real backup, not the app.
+- When installing from the command line (`xcrun devicectl device install app`),
+  the phone must be **unlocked** for the follow-up `devicectl … process launch`
+  to be accepted.
 
 ## Testing
 
 ```bash
 npm run check:browser   # offline: crypto path, derivation, signing (fast, CI-safe)
-npm run check:smoke     # loads the REAL built bundle in headless Chrome
+npm run check:smoke     # loads the REAL built bundle in a headless browser
 npm run check:live      # live ElectrumX read + offline tx build (network required)
 npm run probe           # which endpoints answer a handshake right now
 node scripts/check-multisign.mjs   # proves input-index ↔ key pairing
@@ -281,9 +315,11 @@ policy, TLS or the network rather than to the app.
 
 `check:smoke` needs a Chromium-based browser — Chrome, Brave, Edge and Chromium
 are detected at the usual paths; set `CHROME_PATH` to point at a different one.
+The two E2E scripts use the same detection, and each run gets its own throwaway
+browser profile and debugging port, so runs never interfere.
 
 `check:smoke` is the one that decides whether the app actually runs: it serves
-`dist/` and loads it in headless Chrome, failing if `#root` never renders or an
+`dist/` and loads it in a headless browser, failing if `#root` never renders or an
 uncaught error occurs. Everything else can pass while the app is a black screen —
 that is exactly what happened once. To smoke-test the assets packaged inside an
 app build, point it at the copied web assets:
@@ -304,7 +340,21 @@ npx vite build -c vite.test.config.ts && node dist-test/browser-path-check.js --
 ```
 
 Last live run (`npm run check:connect`): wallet created in 1.1 s, connected and
-scanned in 2.6 s against `wss://electrumx.radiant4people.com:50022`.
+scanned in 2.5 s against `wss://electrumx.radiant4people.com:50022`.
+
+### When something fails
+
+| Symptom | First thing to run |
+| --- | --- |
+| "That recovery phrase is not valid" | `npm run check:phrase` — names the position of the offending word and suggests near matches |
+| "Could not open the wallet", or no server reaches the app | `npm run check:connect` (the app's own path, with per-endpoint reasons), then `npm run probe` and `node scripts/probe-ws.mjs` to isolate transport |
+| Black screen, nothing renders | `npm run check:smoke` |
+| Wrong addresses, balances or fee | `npm run check:browser` |
+
+CI (`.github/workflows/ios.yml`, `macos-latest`) runs `npm ci → npm run build →
+check:browser → check:smoke → npx cap sync ios → xcodebuild` for the iOS
+simulator on every push to `main`. The network-dependent checks are deliberately
+outside CI, so a flaky endpoint can never fail a build.
 
 ---
 
@@ -326,12 +376,11 @@ preferences.
 
 **Known limitations — read these:**
 
-1. **The native plugins compile, but have not been run on a device.** The app
-   builds for the iOS simulator in CI and both `BiometricVaultPlugin` and
-   `ScreenSecurityPlugin` link in, but a biometric prompt and the recording
-   overlay need a physical iPhone with an enrolled face/fingerprint to confirm
-   end-to-end. Everything fails safe — biometric errors fall back to the
-   passphrase.
+1. **The native plugins have run on one device, not across the iOS matrix.**
+   Face ID enrollment and unlock are verified on an iPhone 15 Pro Max
+   (iOS 27.0.1); the capture overlay still needs confirming during a live screen
+   recording, and Touch ID, iPad and older iOS versions are untested. Everything
+   fails safe — biometric errors fall back to the passphrase.
 2. **Keys are held in JS memory** while unlocked (WKWebView), not in native
    storage. Same class of exposure as any JavaScript wallet.
 3. **iOS cannot block manual screenshots.** The screen-capture protection
@@ -360,24 +409,38 @@ preferences.
 ## Biometric unlock — how it works
 
 Enabling it encrypts the *entire* wallet secret blob (mnemonic + network +
-server preferences, as JSON) with an AES-256-GCM key created in the **iOS
-Keychain** with biometry-only access control:
+server preferences, as JSON) with **AES-256-GCM via CryptoKit**, under a
+256-bit key stored in the **iOS Keychain** with biometry-only access control:
 
 ```swift
 SecAccessControlCreateWithFlags(nil,
     kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-    [.privateKeyUsage, .biometryCurrentSet],   // Face ID or Touch ID, every use
+    .biometryCurrentSet,          // Face ID or Touch ID, every use
     &error)
 ```
+
+The key is a Keychain generic-password item holding the raw 256-bit secret. The
+protection class comes from the access-control object, so no separate
+`kSecAttrAccessible` attribute is needed — passing both can be rejected with
+`errSecParam`.
 
 `.biometryCurrentSet` means the key requires a biometric from the *currently
 enrolled* set, so **enrolling a new face or fingerprint invalidates the key** —
 the iOS equivalent of Android's
-`setInvalidatedByBiometricEnrollment(true)`. The GCM operation itself is bound
-to the key, so the OS only decrypts after a successful biometric challenge;
-authenticating and decrypting cannot be separated. (The Secure Enclave cannot
-be used because it does not support AES-GCM; the key material is
-keychain-protected instead.)
+`setInvalidatedByBiometricEnrollment(true)`. The Keychain runs the biometric
+challenge when the key is read, so authenticating and decrypting cannot be
+separated. (The Secure Enclave cannot be used because it does not support
+AES-GCM; the key material is Keychain-protected instead.)
+
+Availability is checked with `.deviceOwnerAuthenticationWithBiometrics` — the
+`LAPolicy` case that answers "biometric hardware present, something enrolled,
+evaluable right now". The current-set guarantee itself is enforced by the
+Keychain access control, not by the prompt.
+
+Enrollment failures report the `OSStatus` with a plain-language hint
+(`errSecParam`, `errSecMissingEntitlement`, `errSecAuthFailed`,
+`errSecNotAvailable`, …), so a device-specific problem is diagnosable instead of
+looking like a dead button.
 
 Documented difference from the Android build: the system prompt offers no
 device-passcode fallback, because the key demands biometry. The app passphrase
@@ -433,10 +496,18 @@ OK   1024x1024 ink 0.62 (target 0.62)
 ## Screen privacy (anti-screen-capture)
 
 iOS has no `FLAG_SECURE`, so `ScreenSecurityPlugin.swift` does the closest
-enforceable thing: it watches `UIScreen.capturedDidChangeNotification` and,
-while capture is in progress **and** protection is held, covers the window
-with an opaque black layer. That defeats screen recording, AirPlay mirroring
-and Sidecar — the captured frames contain nothing but black.
+enforceable thing: while capture is in progress **and** protection is held, it
+covers the window with an opaque black layer, so captured frames contain
+nothing but black. That defeats screen recording, AirPlay mirroring and
+Sidecar.
+
+Capture state comes from the `sceneCaptureState` trait on iOS 17 and later: the
+overlay view stays mounted for as long as protection is held (transparent while
+nothing is being captured) and reacts to trait changes on itself. On iOS 15–16
+the legacy `UIScreenCapturedDidChange` notification is observed, referenced by
+name because the SDK symbol is gone, with the state read from the window's
+screen. The overlay attaches to the Capacitor bridge's view controller, never
+swallows touches, and is tagged so it cannot be stacked twice.
 
 What it cannot do: stop a manual volume-button screenshot, or blank the
 app-switcher thumbnail. Both are platform limits; the UI states them honestly
@@ -481,20 +552,21 @@ This app only ever asks for your *passphrase*, which is local to this device.
 
 ## Known issues / next steps
 
-- The iOS native layer needs its first **physical-device run**: Face ID /
-  Touch ID prompt during enroll/unlock, the recording overlay during a real
-  screen recording, and the `UIScreen.captured` behaviour in the Simulator
-  (simulator recording should trigger it; verify).
+- **Confirm the capture overlay with one live recording** on the phone: start a
+  screen recording while a recovery phrase is on screen and the window should go
+  fully black. Face ID enrollment and unlock are already verified on device.
+- Touch ID, iPad layouts and iOS 15/16 (the pre-`sceneCaptureState` path) are
+  untested.
 - `radiantcore.org` (Glyph/WAVE REST API) was unreachable from the development
   network, so Glyph-token and WAVE-name features are intentionally absent. The
   SDK has them; wiring them up is straightforward once that host is reachable.
 - Broadcast is implemented via the standard `blockchain.transaction.broadcast`
   call but has not been exercised against mainnet with real funds.
-- No price feed, no transaction history list (only UTXOs and per-address
-  totals), no QR *scanner* (a camera-based scanner needs the `AVFoundation`
-  capability; a paste/manual-entry hook fits naturally in `Send.tsx`).
+- No price feed, and no QR *scanner* (a camera-based scanner needs an
+  `AVFoundation` capability on the native side; a paste/manual-entry hook fits
+  naturally in `Send.tsx`).
 
-**Roadmap:** device verification of the native plugins → QR scanning →
+**Roadmap:** capture-overlay confirmation with a live recording → QR scanning →
 per-transaction change addresses → Glyph FT send/receive → fiat price.
 
 ---
@@ -508,7 +580,7 @@ that only you can complete.
 
 | Item | Where | Status |
 | --- | --- | --- |
-| Xcode project + Swift plugins | `ios/`, `plugins/` | compiles in CI |
+| Xcode project + Swift plugins | `ios/`, `plugins/` | builds, installs and runs on device (iOS 27) |
 | App icon (1024×1024) | `assets/icon.png` → `AppIcon.appiconset` | generated (`npm run icons`) |
 | Privacy policy | `docs/privacy-policy.html` | written — needs hosting |
 | Bundle id | `org.radiant.wallet.ios` (in `capacitor.config.ts`) | **verify it is unclaimed** in the developer portal |
@@ -521,7 +593,7 @@ that only you can complete.
 - Register the app id **`org.radiant.wallet.ios`** in
   *Certificates, Identifiers & Profiles → Identifiers → App IDs* (if the
   identifier is already taken by someone else, change `appId` in
-  `capacitor.config.ts` and re-run `npx cap add ios` — do this before the first
+  `capacitor.config.ts` and re-run `npm run sync` — do this before the first
   submission, not after).
 
 ### 2. Build and upload
@@ -580,8 +652,8 @@ Submit for review (first reviews often take a few days), then choose
 ```bash
 # 1. edit code
 # 2. bump package.json version (npm version patch, or by hand)
-# 3. rebuild + reinstall over the top from Xcode (same team)
-npm run build && npx cap sync ios
+# 3. rebuild + resync, then install over the top from Xcode (same team)
+npm run sync
 # → Xcode: Run
 ```
 
