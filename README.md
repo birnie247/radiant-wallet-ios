@@ -251,6 +251,8 @@ npm run probe           # which endpoints answer a handshake right now
 node scripts/check-multisign.mjs   # proves input-index ↔ key pairing
 npm run check:phrase    # offline BIP39 phrase checker (reads stdin, never echoes)
 npm run check:restore   # E2E: drives the restore screen in a real browser (CDP)
+npm run check:connect   # E2E: create wallet -> connect -> scan, with a timeline
+node scripts/probe-ws.mjs   # raw wss:// connect from a browser context (origin, TLS)
 
 # native compile gate (macOS):
 cd ios/App && xcodebuild -project App.xcodeproj -scheme App \
@@ -268,6 +270,14 @@ built bundle in a headless Chromium over CDP, clicks *Restore from recovery
 phrase*, fills the field and asserts the outcome for the standard BIP39 test
 vectors — valid 12- and 24-word phrases must reach the passphrase step, a bad
 checksum and a 13-word phrase must be rejected with the UI's own messages.
+
+`check:connect` is the one that catches a broken chain connection: it creates a
+wallet in the real bundle, protects it, and then prints a timeline of every
+stage the UI shows (which endpoint it is dialling, scanning, home) until it
+either lands on the home screen or surfaces the app's own error — including the
+per-endpoint reasons. `probe-ws.mjs` isolates the transport: it opens a raw
+`wss://` socket from a browser context, so a failure is attributable to origin
+policy, TLS or the network rather than to the app.
 
 `check:smoke` needs a Chromium-based browser — Chrome, Brave, Edge and Chromium
 are detected at the usual paths; set `CHROME_PATH` to point at a different one.
@@ -293,7 +303,8 @@ against mainnet, append the `--live` flag:
 npx vite build -c vite.test.config.ts && node dist-test/browser-path-check.js --live
 ```
 
-Last live run: connected in 1.6 s, tip height 478552, 40 addresses discovered.
+Last live run (`npm run check:connect`): wallet created in 1.1 s, connected and
+scanned in 2.6 s against `wss://electrumx.radiant4people.com:50022`.
 
 ---
 

@@ -30,6 +30,12 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [busy, setBusy] = useState("");
+  /**
+   * A connect/scan failure that happened before a session existed. Without
+   * this the onboarding screen silently reappears and the reason — including
+   * the per-endpoint errors — is lost, which reads as a "stall".
+   */
+  const [bootError, setBootError] = useState("");
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [tipDrift, setTipDrift] = useState<number | null>(null);
@@ -53,6 +59,9 @@ export default function App() {
 
   const sessionRef = useRef<Session | null>(null);
   sessionRef.current = session;
+
+  /** Secrets of the wallet that failed to open, so "Try again" can retry. */
+  const pendingSecrets = useRef<WalletSecrets | null>(null);
 
   useEffect(() => {
     setHasExisting(hasVault());
@@ -88,6 +97,8 @@ export default function App() {
 
   /** Connect, scan, and hold the wallet in memory. */
   const openWallet = useCallback(async (secrets: WalletSecrets) => {
+    pendingSecrets.current = secrets;
+    setBootError("");
     setBusy("Connecting to a Radiant server…");
     try {
       const { client, endpoint } = await connect(
@@ -107,7 +118,12 @@ export default function App() {
 
       setSession({ secrets, wallet, client, endpoint, scan });
       setScreen("home");
+      pendingSecrets.current = null;
       void hydrateHistory({ secrets, wallet, client, endpoint, scan });
+    } catch (e) {
+      // Keep the reason on screen. Returning to onboarding silently made a
+      // failed connection look like the app had simply stalled.
+      setBootError((e as Error).message);
     } finally {
       setBusy("");
     }
@@ -212,6 +228,43 @@ export default function App() {
 
   if (!booted) {
     return <Splash />;
+  }
+
+  // A failure while opening the wallet is shown here: bouncing straight back
+  // to the welcome screen made a failed connection look like a stall and threw
+  // away the per-endpoint reasons.
+  if (!session && !busy && bootError) {
+    return (
+      <div className="app">
+        <div className="content">
+          <div className="field">
+            <label>Could not open the wallet</label>
+            <div
+              className="error"
+              style={{ whiteSpace: "pre-wrap", fontSize: 12 }}
+            >
+              {bootError}
+            </div>
+            <div className="hint">
+              The wallet is still saved on this device — nothing is lost.
+              Check the connection and try again.
+            </div>
+          </div>
+          <button
+            className="btn primary"
+            onClick={() => {
+              const secrets = pendingSecrets.current;
+              if (secrets) void openWallet(secrets);
+            }}
+          >
+            Try again
+          </button>
+          <button className="btn" onClick={() => setBootError("")}>
+            Back
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!session) {

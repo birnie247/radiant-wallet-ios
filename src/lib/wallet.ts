@@ -124,6 +124,20 @@ export interface Connection {
  * Connect to the first ElectrumX server that completes a handshake.
  * Servers are WebSocket endpoints; a dead host is skipped rather than fatal.
  */
+/**
+ * Endpoints are raced in waves instead of being tried one after another: the
+ * curated list contains servers that are permanently dark, and a sequential
+ * attempt costs (connect timeout + handshake timeout) per dead host — a minute
+ * or more of "Connecting…" before the app even reports failure.
+ *
+ * An explicitly preferred server (the user's own choice) is still attempted
+ * alone first, so choosing a server means connecting to *that* server.
+ */
+const CONNECT_TIMEOUT_MS = 8_000;
+const HANDSHAKE_TIMEOUT_MS = 6_000;
+/** Candidates attempted concurrently within one wave. */
+const RACE_WIDTH = 3;
+
 export async function connect(
   network: NetworkName,
   preferred?: string,
@@ -135,32 +149,100 @@ export async function connect(
   }
 
   const errors: string[] = [];
-  for (const url of candidates) {
-    onAttempt?.(url);
-    const client = new ElectrumClient({ endpoint: url, reconnect: true });
+  const result = (client: ElectrumClient, url: string): Connection => {
+    const entry = findServer(network, url);
+    return {
+      client,
+      endpoint: url,
+      verified: entry?.verified ?? false,
+      operator: entry?.operator ?? "unknown",
+    };
+  };
+
+  /**
+   * Full connection to one endpoint: socket open, then an ElectrumX handshake.
+   * Resolves with the connected client; rejects with a labelled error.
+   */
+  const attempt = async (
+    url: string,
+    client: ElectrumClient,
+  ): Promise<ElectrumClient> => {
     try {
-      await withTimeout(client.connect(), 12_000, `connect ${url}`);
+      await withTimeout(client.connect(), CONNECT_TIMEOUT_MS, `connect ${url}`);
+      // Use the SDK's protocol range (1.4–1.4.3). Passing an explicit "1.0"
+      // here made every current server reject the handshake with
+      // "unsupported protocol version: 1.0".
       await withTimeout(
-        client.serverVersion("rxd-ios-wallet", "1.0"),
-        8_000,
+        client.serverVersion("rxd-ios-wallet"),
+        HANDSHAKE_TIMEOUT_MS,
         `handshake ${url}`,
       );
-      const entry = findServer(network, url);
-      return {
-        client,
-        endpoint: url,
-        verified: entry?.verified ?? false,
-        operator: entry?.operator ?? "unknown",
-      };
+      return client;
     } catch (err) {
       try {
         client.close();
       } catch {
         /* ignore */
       }
-      errors.push(`${url}: ${(err as Error).message}`);
+      throw err;
+    }
+  };
+
+  // 1. The user's explicit choice gets its own shot, alone.
+  if (preferred && candidates.includes(preferred)) {
+    onAttempt?.(preferred);
+    try {
+      return result(await attempt(preferred, new ElectrumClient({
+        endpoint: preferred,
+        reconnect: true,
+      })), preferred);
+    } catch (err) {
+      errors.push(`${preferred}: ${(err as Error).message}`);
     }
   }
+
+  // 2. Everything else races, RACE_WIDTH at a time; first handshake wins.
+  const remaining = candidates.filter((url) => url !== preferred);
+  for (let i = 0; i < remaining.length; i += RACE_WIDTH) {
+    const wave = remaining.slice(i, i + RACE_WIDTH);
+    onAttempt?.(wave[0]);
+    const clients = new Map<string, ElectrumClient>();
+    for (const url of wave) {
+      clients.set(url, new ElectrumClient({ endpoint: url, reconnect: true }));
+    }
+
+    try {
+      const winner = await Promise.any(
+        wave.map(async (url) => ({
+          url,
+          client: await attempt(url, clients.get(url)!),
+        })),
+      );
+      // The losers may still be mid-handshake; close them so no socket leaks.
+      for (const [url, client] of clients) {
+        if (url === winner.url) continue;
+        try {
+          client.close();
+        } catch {
+          /* ignore */
+        }
+      }
+      return result(winner.client, winner.url);
+    } catch (err) {
+      for (const client of clients.values()) {
+        try {
+          client.close();
+        } catch {
+          /* ignore */
+        }
+      }
+      const reasons = (err as AggregateError).errors ?? [err];
+      wave.forEach((url, index) => {
+        errors.push(`${url}: ${(reasons[index] as Error)?.message ?? "failed"}`);
+      });
+    }
+  }
+
   throw new Error(`Could not reach a Radiant server.\n${errors.join("\n")}`);
 }
 
