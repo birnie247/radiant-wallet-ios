@@ -441,6 +441,17 @@ Availability is checked with `.deviceOwnerAuthenticationWithBiometrics` — the
 evaluable right now". The current-set guarantee itself is enforced by the
 Keychain access control, not by the prompt.
 
+"Is biometric unlock enabled?" is answered from the ciphertext item alone. The
+status query never reads the gated key, so asking for it cannot raise a stray
+prompt — which matters because the unlock screen asks on every launch, and a
+sheet requested while iOS is still bringing the app forward is dismissed
+unanswered.
+
+With biometrics enabled, opening the app raises the Face ID prompt once, after
+the window is frontmost; success opens the wallet directly, and a cancelled or
+failed prompt leaves the unlock screen with the passphrase form (and the
+"Unlock with biometrics" button for another attempt).
+
 Enrollment failures report the `OSStatus` with a plain-language hint
 (`errSecParam`, `errSecMissingEntitlement`, `errSecAuthFailed`,
 `errSecNotAvailable`, …), so a device-specific problem is diagnosable instead of

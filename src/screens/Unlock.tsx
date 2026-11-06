@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { deleteVault } from "../lib/vault";
 import { biometricStatus, type BiometricStatus } from "../lib/biometric";
 
@@ -30,6 +30,77 @@ export default function Unlock({
   }, []);
 
   const biometricReady = bio?.platform === true && bio.available && bio.enrolled;
+
+  /**
+   * Ask for the biometric as soon as the screen knows it is set up: biometric
+   * unlock exists so that opening the app needs no taps. The prompt is raised
+   * only once per mount, and only after the window is actually frontmost —
+   * a sheet requested while the app is still launching is dismissed by iOS
+   * without ever being answered, which looked like a button that does nothing.
+   */
+  const autoTried = useRef(false);
+  /** False after unmount: a dep-change cleanup must not suppress UI updates. */
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!biometricReady || autoTried.current) return;
+    autoTried.current = true;
+    let aborted = false;
+
+    const whenVisible = () =>
+      new Promise<void>((resolve) => {
+        if (document.visibilityState === "visible") {
+          resolve();
+          return;
+        }
+        const seen = () => {
+          if (document.visibilityState !== "visible") return;
+          cleanup();
+          resolve();
+        };
+        const timer = setTimeout(() => {
+          cleanup();
+          resolve();
+        }, 4000);
+        const cleanup = () => {
+          clearTimeout(timer);
+          document.removeEventListener("visibilitychange", seen);
+        };
+        document.addEventListener("visibilitychange", seen);
+      });
+
+    const run = async () => {
+      await whenVisible();
+      // Let the window finish becoming key; the OS will not present a
+      // biometric sheet for an app that is not yet frontmost.
+      await new Promise((r) => setTimeout(r, 350));
+      if (aborted || !mounted.current) return;
+      setError("");
+      setWorking(true);
+      try {
+        await onBiometricUnlock();
+      } catch (e) {
+        if (!mounted.current) return;
+        // Cancelled or failed: stay here, quietly explaining what to do next.
+        setError(
+          (e as Error).message ||
+            "Biometric unlock did not complete. Try again, or use your passphrase.",
+        );
+        setWorking(false);
+      }
+    };
+    void run();
+
+    return () => {
+      aborted = true;
+    };
+  }, [biometricReady, onBiometricUnlock]);
 
   async function submit() {
     setError("");

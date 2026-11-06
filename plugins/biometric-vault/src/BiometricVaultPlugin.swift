@@ -78,8 +78,12 @@ public class BiometricVaultPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isEnrolled(_ call: CAPPluginCall) {
         let alias = call.getString("alias") ?? "rxd-wallet-secrets"
-        let enrolled = readCipher(alias: alias) != nil && keyData(alias: alias) != nil
-        call.resolve(["enrolled": enrolled])
+        // The ciphertext is the marker: it is written only after a successful
+        // enrollment and it carries no access control, so answering "is this
+        // enabled?" never touches the biometry-gated key. Reading the key here
+        // would raise a Face ID sheet every time the unlock screen asks for its
+        // status — during app launch, where iOS dismisses it unanswered.
+        call.resolve(["enrolled": readCipher(alias: alias) != nil])
     }
 
     @objc func enroll(_ call: CAPPluginCall) {
