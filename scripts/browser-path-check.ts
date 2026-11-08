@@ -12,6 +12,7 @@
 import { HDWallet, p2pkhScript, radiantjs, rxdToPhotons } from "@radiant-core/sdk";
 import {
   buildPayment,
+  checkAddress,
   connect,
   crossCheckTip,
   scanWallet,
@@ -20,6 +21,7 @@ import {
 } from "../src/lib/wallet";
 import { formatRxd, parseRxd } from "../src/lib/money";
 import { coinTypeFor } from "../src/lib/vault";
+import { parsePaymentQr } from "../src/lib/qrScanner";
 import type { ScanResult } from "../src/lib/wallet";
 
 const MNEMONIC =
@@ -67,6 +69,29 @@ check(
   "walletFor honours the derivation",
   walletFor({ mnemonic: MNEMONIC, network: "mainnet" }).address(0) === k0.address,
 );
+
+// 1c. QR payload parsing (no camera involved).
+const qrBare = parsePaymentQr(k0.address);
+check("qr: bare address", qrBare?.address === k0.address);
+check("qr: bare address has no amount", qrBare?.amount === undefined);
+const qrUri = parsePaymentQr(`radiant:${k0.address}?amount=1.25&label=Coffee%20fund`);
+check("qr: payment uri address", qrUri?.address === k0.address);
+check("qr: payment uri amount", qrUri?.amount === "1.25", String(qrUri?.amount));
+check(
+  "qr: uri without amount",
+  parsePaymentQr(`radiant:${k0.address}`)?.amount === undefined,
+);
+check(
+  "qr: uppercase scheme is accepted",
+  parsePaymentQr(`RADIANT:${k0.address}?amount=2`)?.amount === "2",
+);
+check(
+  "qr: parsed address passes checkAddress",
+  checkAddress((qrUri as { address: string }).address, "mainnet").ok,
+);
+check("qr: rejects an https url", parsePaymentQr("https://radiantblockchain.org") === null);
+check("qr: rejects prose", parsePaymentQr("pay me five rxd please") === null);
+check("qr: rejects an empty payload", parsePaymentQr("   ") === null);
 
 // 2. CSPRNG (Web Crypto path) — must produce a fresh 12-word mnemonic.
 const generated = HDWallet.generateMnemonic();

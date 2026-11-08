@@ -34,10 +34,11 @@ app-local Swift plugins (`plugins/`).
 | Reveal recovery phrase behind passphrase re-entry | ✅ implemented |
 | Auto-lock after 60 s in background | ✅ implemented |
 | QR code display for receiving | ✅ implemented |
+| Scan a payment QR code to fill the send form (camera) | ✅ implemented — device check pending |
 | Transaction history with confirmation counts | ✅ verified against synthetic txs |
 | Biometric unlock (iOS Keychain + Face ID / Touch ID) | ✅ verified on a physical iPhone |
 | Recovery phrase blocks screen recording & mirroring | ✅ implemented — one live recording pending |
-| **QR scanning, Glyph tokens, WAVE names, price** | ❌ not yet |
+| **Glyph tokens, WAVE names, price** | ❌ not yet |
 
 > **Honest caveat:** no transaction has been broadcast to mainnet from this code
 > by me, because that requires funds. Everything up to and including a valid
@@ -126,6 +127,7 @@ src/
     history.ts    confirmation-annotated transaction history
     servers.ts    ElectrumX endpoint pool (WebSocket) + preferred server
     money.ts      BigInt photon/RXD conversion (never float)
+    qrScanner.ts  camera QR scan bridge + payment-URI parsing
   screens/
     Onboarding.tsx  create / restore / passphrase
     Unlock.tsx      biometric or passphrase unlock, wipe
@@ -141,6 +143,8 @@ plugins/
     BiometricVaultPlugin.swift   CryptoKit AES-256-GCM, Keychain key gated by Face ID / Touch ID
   screen-security/      app-local Capacitor plugin (Swift package)
     ScreenSecurityPlugin.swift   capture overlay driven by the sceneCaptureState trait
+  qr-scanner/           app-local Capacitor plugin (Swift package)
+    QrScannerPlugin.swift        camera sheet that decodes a payment QR code
 ios/
   App/                  Xcode project (WKWebView + Capacitor via SwiftPM)
     App/Info.plist      NSFaceIDUsageDescription + scene manifest
@@ -374,9 +378,10 @@ passphrase or tampered vault fails cleanly rather than producing a garbage seed.
 (`server.iosScheme` in `capacitor.config.ts`), which gives the WKWebView a
 secure context — required by the clipboard API and Web Crypto — and
 `allowMixedContent` is off so no remote content can ever be loaded. The app
-requests no capabilities beyond network access and (only when you enable it)
-Face ID, and the biometric key + ciphertext live in the Keychain, not in plain
-preferences.
+requests no capabilities beyond network access, Face ID (only when you enable
+biometric unlock) and the camera (only while a QR scan sheet is open — no frame
+is stored, recorded or transmitted). The biometric key and ciphertext live in
+the Keychain, not in plain preferences.
 
 **Known limitations — read these:**
 
@@ -577,11 +582,10 @@ This app only ever asks for your *passphrase*, which is local to this device.
   SDK has them; wiring them up is straightforward once that host is reachable.
 - Broadcast is implemented via the standard `blockchain.transaction.broadcast`
   call but has not been exercised against mainnet with real funds.
-- No price feed, and no QR *scanner* (a camera-based scanner needs an
-  `AVFoundation` capability on the native side; a paste/manual-entry hook fits
-  naturally in `Send.tsx`).
+- No price feed. QR codes are read from the camera only — there is no
+  "pick a screenshot from the photo library" path yet.
 
-**Roadmap:** capture-overlay confirmation with a live recording → QR scanning →
+**Roadmap:** capture-overlay confirmation with a live recording →
 per-transaction change addresses → Glyph FT send/receive → fiat price.
 
 ---

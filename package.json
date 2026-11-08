@@ -34,6 +34,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "rxd-biometric-vault": "file:plugins/biometric-vault",
+    "rxd-qr-scanner": "file:plugins/qr-scanner",
     "rxd-screen-security": "file:plugins/screen-security"
   },
   "devDependencies": {

@@ -2,6 +2,11 @@ import { useState } from "react";
 import { formatRxd, parseRxd, shortId } from "../lib/money";
 import { unlockVault } from "../lib/vault";
 import {
+  isScanCancelled,
+  qrScanAvailable,
+  scanPaymentQr,
+} from "../lib/qrScanner";
+import {
   FAST_FEE_RATE,
   MIN_FEE_RATE,
   broadcast,
@@ -31,6 +36,30 @@ export default function Send({ nav }: { nav: Nav }) {
 
   const trimmedTo = to.trim();
   const addressCheck = trimmedTo ? checkAddress(trimmedTo, network) : null;
+
+  /**
+   * Fill the form from a QR code. The scanned address is validated immediately
+   * (network included) so a code for another chain is refused here rather than
+   * at review time.
+   */
+  async function scan() {
+    setError("");
+    setWorking(true);
+    try {
+      const payment = await scanPaymentQr();
+      setTo(payment.address);
+      if (payment.amount && !amount.trim()) setAmount(payment.amount);
+      const check = checkAddress(payment.address, network);
+      if (!check.ok) {
+        setError(check.error ?? "That QR code does not contain a Radiant address");
+      }
+    } catch (e) {
+      // Backing out of the sheet is not an error.
+      if (!isScanCancelled(e)) setError((e as Error).message);
+    } finally {
+      setWorking(false);
+    }
+  }
 
   function review() {
     setError("");
@@ -146,15 +175,28 @@ export default function Send({ nav }: { nav: Nav }) {
       <div className="content">
         <div className="field">
           <label>To</label>
-          <input
-            className="mono"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="Radiant address (starts with 1)"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
+          <div className="btn-row">
+            <input
+              className="mono"
+              style={{ flex: 1, minWidth: 0 }}
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="Radiant address (starts with 1)"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            {qrScanAvailable() && (
+              <button
+                className="btn small"
+                onClick={() => void scan()}
+                disabled={working}
+                title="Scan a payment QR code"
+              >
+                Scan
+              </button>
+            )}
+          </div>
           {addressCheck && !addressCheck.ok && (
             <div className="error">{addressCheck.error}</div>
           )}

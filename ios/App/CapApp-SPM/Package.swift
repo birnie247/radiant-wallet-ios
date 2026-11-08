@@ -13,6 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.6.0"),
         .package(name: "RxdBiometricVault", path: "../../../plugins/biometric-vault"),
+        .package(name: "RxdQrScanner", path: "../../../plugins/qr-scanner"),
         .package(name: "RxdScreenSecurity", path: "../../../plugins/screen-security")
     ],
     targets: [
@@ -22,6 +23,7 @@ let package = Package(
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
                 .product(name: "RxdBiometricVault", package: "RxdBiometricVault"),
+                .product(name: "RxdQrScanner", package: "RxdQrScanner"),
                 .product(name: "RxdScreenSecurity", package: "RxdScreenSecurity")
             ]
         )
