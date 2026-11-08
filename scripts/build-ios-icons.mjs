@@ -6,11 +6,11 @@
  * Radiant-Core/Radiant-Logo, Apache-2.0) — brand cyan + cream, transparent.
  *
  * Outputs:
- *   assets/icon.png                                                1024x1024, opaque black
+ *   assets/icon.png                                                1024x1024, opaque navy
  *   ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png  same image
  *
  * iOS app icons must be fully opaque (App Store requirement), so the mark is
- * composited onto a black canvas, matching the Android launcher icons. The
+ * composited onto the design system's navy canvas (radiantcore.org --bg). The
  * ink target keeps the mark comfortably inside Apple's corner-rounding mask.
  *
  * Usage: LOGO_SRC=path/to/mark.png node scripts/build-ios-icons.mjs
@@ -27,7 +27,8 @@ import {
 } from "./lib/image.mjs";
 
 const LOGO = process.env.LOGO_SRC ?? "assets/brand/radiant-mark.png";
-const BG = [0, 0, 0];
+/** App-icon canvas: the design system's navy (--bg), not pure black. */
+const BG = [10, 14, 23];
 const SIZE = 1024;
 const INK = 0.62;
 const TOLERANCE = 0.025;

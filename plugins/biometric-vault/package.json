@@ -1,7 +1,7 @@
 {
   "name": "rxd-biometric-vault",
   "version": "1.0.0",
-  "description": "Biometric-gated wallet vault for Radiant Wallet (app-local Capacitor plugin, iOS)",
+  "description": "Biometric-gated wallet vault for Lumen RXD Wallet (app-local Capacitor plugin, iOS)",
   "license": "MIT",
   "capacitor": {
     "ios": {

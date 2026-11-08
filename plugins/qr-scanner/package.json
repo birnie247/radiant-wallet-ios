@@ -1,7 +1,7 @@
 {
   "name": "rxd-qr-scanner",
   "version": "1.0.0",
-  "description": "Camera QR scanning for Radiant Wallet (app-local Capacitor plugin, iOS)",
+  "description": "Camera QR scanning for Lumen RXD Wallet (app-local Capacitor plugin, iOS)",
   "license": "MIT",
   "capacitor": {
     "ios": {

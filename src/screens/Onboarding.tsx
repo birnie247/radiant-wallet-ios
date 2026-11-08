@@ -124,9 +124,9 @@ export default function Onboarding({
           className="splash"
           style={{ justifyContent: "flex-start", paddingTop: 40 }}
         >
-          <div className="brand-mark">R</div>
+          <div className="brand-mark">L</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 22 }}>Radiant Wallet</div>
+            <div style={{ fontWeight: 700, fontSize: 22 }}>Lumen RXD Wallet</div>
             <div style={{ color: "var(--text-faint)", fontSize: 13 }}>
               Non-custodial RXD · keys stay on this device
             </div>

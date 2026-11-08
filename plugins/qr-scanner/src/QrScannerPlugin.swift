@@ -134,14 +134,14 @@ final class QrScannerViewController: UIViewController, AVCaptureMetadataOutputOb
                         self.configureSession()
                     } else {
                         self.finish(.failure(ScanFailure(
-                            message: "Camera access is off. Turn it on in Settings → Radiant Wallet."
+                            message: "Camera access is off. Turn it on in Settings → Lumen RXD Wallet."
                         )))
                     }
                 }
             }
         default:
             finish(.failure(ScanFailure(
-                message: "Camera access is off. Turn it on in Settings → Radiant Wallet."
+                message: "Camera access is off. Turn it on in Settings → Lumen RXD Wallet."
             )))
         }
     }

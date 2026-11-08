@@ -189,7 +189,7 @@ export async function connect(
       // here made every current server reject the handshake with
       // "unsupported protocol version: 1.0".
       await withTimeout(
-        client.serverVersion("rxd-ios-wallet"),
+        client.serverVersion("lumen-rxd-wallet"),
         HANDSHAKE_TIMEOUT_MS,
         `handshake ${url}`,
       );

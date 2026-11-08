@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteVault } from "../lib/vault";
 import { biometricStatus, type BiometricStatus } from "../lib/biometric";
+import { BiometricIcon } from "../components/Icons";
 
 export default function Unlock({
   onUnlock,
@@ -147,10 +148,11 @@ export default function Unlock({
         {biometricReady && (
           <>
             <button
-              className="btn primary"
+              className="btn primary with-icon"
               disabled={working}
               onClick={unlockWithFace}
             >
+              <BiometricIcon />
               {working ? "Waiting for biometric…" : "Unlock with biometrics"}
             </button>
             <div className="hint center">or use your passphrase</div>

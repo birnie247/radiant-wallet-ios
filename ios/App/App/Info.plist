@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Radiant Wallet</string>
+        <string>Lumen RXD Wallet</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,9 +25,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Radiant Wallet uses Face ID or Touch ID to unlock the encrypted copy of your wallet secret stored on this device. You can always use your passphrase instead.</string>
+	<string>Lumen RXD Wallet uses Face ID or Touch ID to unlock the encrypted copy of your wallet secret stored on this device. You can always use your passphrase instead.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Radiant Wallet uses the camera only to scan a payment QR code when you tap Scan. Nothing is recorded, stored or sent anywhere.</string>
+	<string>Lumen RXD Wallet uses the camera only to scan a payment QR code when you tap Scan. Nothing is recorded, stored or sent anywhere.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

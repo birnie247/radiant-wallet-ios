@@ -6,6 +6,7 @@ import {
   qrScanAvailable,
   scanPaymentQr,
 } from "../lib/qrScanner";
+import { ScanIcon } from "../components/Icons";
 import {
   FAST_FEE_RATE,
   MIN_FEE_RATE,
@@ -188,11 +189,12 @@ export default function Send({ nav }: { nav: Nav }) {
             />
             {qrScanAvailable() && (
               <button
-                className="btn small"
+                className="btn small with-icon"
                 onClick={() => void scan()}
                 disabled={working}
                 title="Scan a payment QR code"
               >
+                <ScanIcon />
                 Scan
               </button>
             )}

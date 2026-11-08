@@ -323,9 +323,9 @@ function Splash({ message }: { message?: string }) {
   return (
     <div className="app">
       <div className="splash">
-        <div className="brand-mark">R</div>
+        <div className="brand-mark">L</div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 20 }}>Radiant Wallet</div>
+          <div style={{ fontWeight: 700, fontSize: 20 }}>Lumen RXD Wallet</div>
           <div style={{ color: "var(--text-faint)", fontSize: 13 }}>
             Non-custodial · RXD
           </div>

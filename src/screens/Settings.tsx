@@ -270,7 +270,7 @@ export default function Settings({ nav }: { nav: Nav }) {
         <div className="card tight">
           <div className="row" style={{ paddingTop: 0 }}>
             <div className="grow">
-              <div className="title">Radiant Wallet</div>
+              <div className="title">Lumen RXD Wallet</div>
               <div className="sub">v0.1.0 · non-custodial</div>
             </div>
           </div>

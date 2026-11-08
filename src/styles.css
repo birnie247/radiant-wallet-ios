@@ -1,64 +1,65 @@
 /* ============================================================
-   Radiant Wallet — design system
+   Lumen RXD Wallet — design system
 
-   Tokens are lifted from https://radiantblockchain.org/assets/css/style.css
-   so the app reads as the same product:
-     • true-black canvas (--color-bg: hsl(0,0%,0%))
-     • cyan brand colour (--color-primary: hsl(195,100%,44%) = #00A8E0)
-     • Inter (variable) as the primary typeface
-     • a 4px-based radius scale and hairline borders, not big soft cards
-     • the --color-contrast-* text ladder for hierarchy
+   Tokens are lifted from https://radiantcore.org (the Radiant Core site) so
+   the wallet reads as part of the ecosystem:
+     • deep navy canvas (#0a0e17) with slate surfaces, not true black
+     • sky-blue accent (#38bdf8, dim #0ea5e9) with a soft glow tint
+     • Inter (variable) as the primary typeface, the same stack the site uses
+     • the site's supporting hues: green #34d399, orange #fb923c,
+       purple #a78bfa, red #f87171
+     • generous radii (10–16px) and hairline borders, not heavy drop shadows
    ============================================================ */
 
 :root {
-  /* Surface ladder — site --color-bg family */
-  --bg: hsl(0, 0%, 0%);
-  --bg-darker: hsl(204, 15%, 6%);
-  --bg-elev: hsl(203, 18%, 9%);
-  --bg-elev-2: hsl(203, 18%, 17%);
-  --bg-elev-3: hsl(204, 15%, 20%);
+  /* Surface ladder — site --bg / --surface / --surface-hover */
+  --bg: #0a0e17;
+  --bg-darker: #0d1220;
+  --bg-elev: #111827;
+  --bg-elev-2: #1a2332;
+  --bg-elev-3: #243044;
 
-  /* Hairlines — site --color-contrast-lower */
-  --line: hsl(208, 12%, 24%);
-  --line-soft: hsla(208, 12%, 30%, 0.55);
+  /* Hairlines — site --border / --border-light */
+  --line: #1e2d3d;
+  --line-soft: rgba(42, 58, 77, 0.55);
 
-  /* Text ladder — site --color-contrast-* */
-  --text: hsl(240, 100%, 99%);
-  --text-body: hsl(223, 8%, 82%);
-  --text-dim: hsl(213, 5%, 56%);
-  --text-faint: hsl(208, 6%, 40%);
+  /* Text ladder — site --text / --text-muted */
+  --text: #e2e8f0;
+  --text-body: #cbd5e1;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
 
-  /* Brand — site --color-primary / accent */
-  --accent: hsl(195, 100%, 44%);
-  --accent-light: hsl(195, 100%, 56%);
-  --accent-dark: hsl(195, 100%, 38%);
-  --accent-ink: hsl(203, 100%, 7%);
+  /* Brand — site --accent / --accent-dim */
+  --accent: #38bdf8;
+  --accent-light: #7dd3fc;
+  --accent-dark: #0ea5e9;
+  --accent-ink: #041018;
 
   /* Translucent tints (avoid color-mix for older WebViews) */
-  --accent-08: hsla(195, 100%, 44%, 0.08);
-  --accent-14: hsla(195, 100%, 44%, 0.14);
-  --accent-25: hsla(195, 100%, 44%, 0.25);
-  --accent-35: hsla(195, 100%, 44%, 0.35);
+  --accent-08: rgba(56, 189, 248, 0.08);
+  --accent-14: rgba(56, 189, 248, 0.14);
+  --accent-25: rgba(56, 189, 248, 0.25);
+  --accent-35: rgba(56, 189, 248, 0.35);
 
-  --danger: hsl(0, 78%, 62%);
-  --danger-05: hsla(0, 78%, 62%, 0.05);
-  --danger-07: hsla(0, 78%, 62%, 0.07);
-  --danger-30: hsla(0, 78%, 62%, 0.3);
-  --danger-35: hsla(0, 78%, 62%, 0.35);
+  --danger: #f87171;
+  --danger-05: rgba(248, 113, 113, 0.05);
+  --danger-07: rgba(248, 113, 113, 0.07);
+  --danger-30: rgba(248, 113, 113, 0.3);
+  --danger-35: rgba(248, 113, 113, 0.35);
 
-  --success: hsl(150, 60%, 45%);
-  --success-08: hsla(150, 60%, 45%, 0.08);
-  --success-30: hsla(150, 60%, 45%, 0.3);
-  --success-35: hsla(150, 60%, 45%, 0.35);
+  --success: #34d399;
+  --success-08: rgba(52, 211, 153, 0.08);
+  --success-30: rgba(52, 211, 153, 0.3);
+  --success-35: rgba(52, 211, 153, 0.35);
 
-  --scrim: hsla(0, 0%, 0%, 0.72);
-  /* Site --color-contrast-lowest, used as the default button fill */
-  --btn-bg: hsl(240, 1%, 10%);
+  --scrim: rgba(4, 8, 16, 0.72);
+  /* One step above --bg-elev, used as the default button fill */
+  --btn-bg: #16202e;
 
-  /* Geometry — the site multiplies a 0.25em (4px) base radius */
-  --radius: 6px;
-  --radius-sm: 4px;
-  --radius-lg: 10px;
+  /* Geometry — the site rounds cards to 12–16px and controls to 10px */
+  --radius: 12px;
+  --radius-sm: 10px;
+  --radius-lg: 16px;
   --gap: 16px;
 
   --font: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont,
@@ -69,30 +70,34 @@
     0 0.9px 1.5px rgba(0, 0, 0, 0.05), 0 3.5px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Light theme, mirroring the site's own light token set. */
+/* Light theme — the same slate/sky family, inverted. */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: hsl(0, 0%, 100%);
-    --bg-darker: hsl(240, 4%, 97%);
-    --bg-elev: hsl(240, 4%, 97%);
-    --bg-elev-2: hsl(240, 4%, 93%);
-    --bg-elev-3: hsl(240, 4%, 89%);
+    --bg: #ffffff;
+    --bg-darker: #f8fafc;
+    --bg-elev: #f8fafc;
+    --bg-elev-2: #f1f5f9;
+    --bg-elev-3: #e2e8f0;
 
-    --line: hsl(240, 4%, 87%);
-    --line-soft: hsla(240, 4%, 70%, 0.5);
+    --line: #e2e8f0;
+    --line-soft: rgba(148, 163, 184, 0.5);
 
-    --text: hsl(240, 6%, 10%);
-    --text-body: hsl(240, 4%, 22%);
-    --text-dim: hsl(208, 6%, 42%);
-    --text-faint: hsl(213, 5%, 55%);
+    --text: #0f172a;
+    --text-body: #334155;
+    --text-dim: #64748b;
+    --text-faint: #94a3b8;
 
-    /* Text ON cyan stays dark in both themes — white on #00A8E0 is unreadable. */
-    --accent-ink: hsl(203, 100%, 8%);
+    /* Sky-600/700 read properly on white; sky-400 does not. */
+    --accent: #0284c7;
+    --accent-light: #0ea5e9;
+    --accent-dark: #0369a1;
+    /* Text ON the accent stays dark in both themes. */
+    --accent-ink: #041018;
 
-    --danger: hsl(0, 70%, 45%);
-    --success: hsl(150, 60%, 32%);
-    --scrim: hsla(240, 6%, 10%, 0.55);
-    --btn-bg: hsl(240, 4%, 90%);
+    --danger: #dc2626;
+    --success: #059669;
+    --scrim: rgba(15, 23, 42, 0.55);
+    --btn-bg: #f1f5f9;
   }
 }
 
@@ -352,6 +357,27 @@ body {
 .action span.glyph {
   font-size: 20px;
   color: var(--accent);
+}
+
+/* SVG icons inherit the accent (or whatever colour the row sets). */
+.action svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+/* A button whose label sits next to an icon. */
+.btn.with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn.with-icon svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 /* ---------------- forms ---------------- */

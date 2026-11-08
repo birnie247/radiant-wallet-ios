@@ -55,7 +55,7 @@ try {
   fail("xcodebuild not found — the release step requires a Mac with Xcode.");
 }
 
-console.log(`Radiant Wallet ${version}  (build ${buildNumber})`);
+console.log(`Lumen RXD Wallet ${version}  (build ${buildNumber})`);
 
 run("building web assets", process.execPath, ["node_modules/vite/bin/vite.js", "build"]);
 run("syncing Capacitor", process.execPath, [

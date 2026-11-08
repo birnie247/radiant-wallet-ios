@@ -1,4 +1,4 @@
-# Radiant Wallet — non-custodial RXD for iOS
+# Lumen RXD Wallet — non-custodial RXD for iOS
 
 A self-custody wallet for the [Radiant](https://radiantblockchain.org) (RXD)
 blockchain. Your recovery phrase is generated on the device, encrypted on the
@@ -473,17 +473,24 @@ unlock screen with the passphrase available.
 
 ## Design system
 
-The UI deliberately mirrors [radiantblockchain.org](https://radiantblockchain.org).
-Tokens were lifted from their stylesheet (`assets/css/style.css`) rather than
-eyeballed, and then verified by sampling rendered pixels:
+The UI takes its palette from [radiantcore.org](https://radiantcore.org) so the
+wallet reads as part of the wider Radiant ecosystem. The tokens were lifted from
+that page's stylesheet rather than eyeballed:
 
 | Token | Value | Source |
 | --- | --- | --- |
-| Canvas | `hsl(0,0%,0%)` `#000000` | `--color-bg` |
-| Surfaces | `hsl(204,15%,6%)`, `hsl(203,18%,9%)`, `hsl(203,18%,17%)` | `--color-bg-darker/-dark/-light` |
-| Brand / primary | `hsl(195,100%,44%)` `#00a8e0` | `--color-accent` |
-| Text | `hsl(0,0%,100%)` / `hsl(210,10%,60%)` | `--color-text` / `--color-text-dim` |
-| Fonts | Inter Variable (bundled, self-hosted) | `--font-*` |
+| Canvas | `#0a0e17` (deep navy) | `--bg` |
+| Surfaces | `#111827`, `#1a2332`, `#243044` | `--surface`, `--surface-hover` |
+| Hairlines | `#1e2d3d`, `#2a3a4d` | `--border`, `--border-light` |
+| Brand / primary | `#38bdf8`, dim `#0ea5e9` | `--accent`, `--accent-dim` |
+| Support hues | green `#34d399`, orange `#fb923c`, purple `#a78bfa`, red `#f87171` | `--green/-orange/-purple/-red` |
+| Text | `#e2e8f0` / `#94a3b8` | `--text`, `--text-muted` |
+| Fonts | Inter Variable (bundled, self-hosted) | same stack as the site |
+| Radii | 10px controls, 12–16px cards | the site's radius scale |
+
+Iconography is a small inline SVG set (`src/components/Icons.tsx`) drawn with
+`currentColor` at a 1.8 stroke — the same weight as the hairline borders — so an
+icon always takes the colour of the row it sits in and needs no per-state asset.
 
 No design library, no CSS framework: one `styles.css` with custom properties,
 so the look cannot drift from the brand without a deliberate edit.
@@ -495,8 +502,9 @@ from [Radiant-Core/Radiant-Logo](https://github.com/Radiant-Core/Radiant-Logo),
 Apache-2.0). Do not replace it with a custom "R" or redraw the mark — use
 your own unless you have permission.
 
-`npm run icons` composites the mark onto a black 1024×1024 canvas (iOS app
-icons must be fully opaque for the App Store) and writes:
+`npm run icons` composites the mark onto the design system's navy 1024×1024
+canvas (`#0a0e17`; iOS app icons must be fully opaque for the App Store) and
+writes:
 
 - `assets/icon.png` — the source of truth for `cap sync`;
 - `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` — the
@@ -711,7 +719,7 @@ used and redistributed under those terms, with attribution.
 ## Attribution
 
 - [Radiant](https://radiantblockchain.org) — the blockchain this wallet talks
-  to. Radiant Wallet is an independent client and is not affiliated with or
+  to. Lumen RXD Wallet is an independent client and is not affiliated with or
   endorsed by the Radiant Foundation.
 - [Radiant-Core/Radiant-Logo](https://github.com/Radiant-Core/Radiant-Logo)
   (Apache-2.0) — `assets/brand/radiant-mark.png`.

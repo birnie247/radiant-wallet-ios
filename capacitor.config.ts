@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   // apps can coexist. Verify this one is unclaimed in the developer portal
   // before submitting.
   appId: "org.radiant.wallet.ios",
-  appName: "Radiant Wallet",
+  appName: "Lumen RXD Wallet",
   webDir: "dist",
   backgroundColor: "#000000",
   ios: {

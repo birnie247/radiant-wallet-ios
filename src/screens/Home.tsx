@@ -1,6 +1,7 @@
 import { formatRxd, shortId } from "../lib/money";
 import { MAX_TIP_DRIFT } from "../lib/wallet";
 import ActivityList from "../components/ActivityList";
+import { ReceiveIcon, SendIcon } from "../components/Icons";
 import type { Nav } from "../types";
 
 export default function Home({ nav }: { nav: Nav }) {
@@ -61,11 +62,11 @@ export default function Home({ nav }: { nav: Nav }) {
 
         <div className="actions">
           <button className="action" onClick={() => nav.go("send")}>
-            <span className="glyph">↑</span>
+            <SendIcon />
             Send
           </button>
           <button className="action" onClick={() => nav.go("receive")}>
-            <span className="glyph">↓</span>
+            <ReceiveIcon />
             Receive
           </button>
         </div>
