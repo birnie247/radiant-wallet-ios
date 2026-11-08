@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { deleteVault } from "../lib/vault";
 import { biometricStatus, type BiometricStatus } from "../lib/biometric";
 
@@ -151,7 +151,7 @@ export default function Unlock({
               disabled={working}
               onClick={unlockWithFace}
             >
-              {working ? "Waiting for biometricâ€¦" : "Unlock with biometrics"}
+              {working ? "Waiting for biometric…" : "Unlock with biometrics"}
             </button>
             <div className="hint center">or use your passphrase</div>
           </>
@@ -177,7 +177,7 @@ export default function Unlock({
           disabled={working || passphrase.length === 0}
           onClick={submit}
         >
-          {working ? "Unlockingâ€¦" : "Unlock"}
+          {working ? "Unlocking…" : "Unlock"}
         </button>
 
         <hr className="hr" />
