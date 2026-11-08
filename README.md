@@ -34,7 +34,7 @@ app-local Swift plugins (`plugins/`).
 | Reveal recovery phrase behind passphrase re-entry | ✅ implemented |
 | Auto-lock after 60 s in background | ✅ implemented |
 | QR code display for receiving | ✅ implemented |
-| Scan a payment QR code to fill the send form (camera) | ✅ implemented — device check pending |
+| Scan a payment QR code to fill the send form (camera) | ✅ verified on device |
 | Transaction history with confirmation counts | ✅ verified against synthetic txs |
 | Biometric unlock (iOS Keychain + Face ID / Touch ID) | ✅ verified on a physical iPhone |
 | Recovery phrase blocks screen recording & mirroring | ✅ implemented — one live recording pending |
@@ -46,10 +46,10 @@ app-local Swift plugins (`plugins/`).
 
 > **Where this has run:** built, installed and exercised on an iPhone 15 Pro Max
 > running iOS 27.0.1, signed with a free personal team — create, restore, live
-> connection and scan (2–3 s), Face ID enrollment and unlock. Still unconfirmed
-> on hardware: the capture overlay during an actual screen recording, and a
-> mainnet broadcast with real funds. Everything fails safe — biometric errors
-> fall back to the passphrase.
+> connection and scan (2–3 s), Face ID enrollment and unlock, and scanning a
+> payment QR code into the send form. Still unconfirmed on hardware: the capture
+> overlay during an actual screen recording, and a mainnet broadcast with real
+> funds. Everything fails safe — biometric errors fall back to the passphrase.
 
 ---
 
