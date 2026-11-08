@@ -162,12 +162,20 @@ body {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(145deg, var(--accent-light), var(--accent-dark));
-  color: var(--accent-ink);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: 15px;
+  flex: none;
+  overflow: hidden;
+}
+
+/* The official Radiant mark, not a redrawn letter. */
+.brand-mark img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-name {
@@ -642,10 +650,9 @@ textarea {
 }
 
 .splash .brand-mark {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--radius-lg);
-  font-size: 26px;
 }
 
 .danger-zone {

@@ -8,6 +8,7 @@ import {
   type WalletSecrets,
 } from "../lib/vault";
 import { useSecureScreen } from "../lib/useSecureScreen";
+import BrandMark from "../components/BrandMark";
 
 type Step = "welcome" | "create" | "restore" | "passphrase";
 
@@ -124,7 +125,7 @@ export default function Onboarding({
           className="splash"
           style={{ justifyContent: "flex-start", paddingTop: 40 }}
         >
-          <div className="brand-mark">L</div>
+          <BrandMark />
           <div>
             <div style={{ fontWeight: 700, fontSize: 22 }}>Lumen RXD Wallet</div>
             <div style={{ color: "var(--text-faint)", fontSize: 13 }}>

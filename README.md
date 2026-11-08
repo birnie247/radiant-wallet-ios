@@ -495,27 +495,31 @@ icon always takes the colour of the row it sits in and needs no per-state asset.
 No design library, no CSS framework: one `styles.css` with custom properties,
 so the look cannot drift from the brand without a deliberate edit.
 
-## App icon
+## App icon and logo
 
 `assets/brand/radiant-mark.png` is the official Radiant logo mark (vendored
 from [Radiant-Core/Radiant-Logo](https://github.com/Radiant-Core/Radiant-Logo),
 Apache-2.0). Do not replace it with a custom "R" or redraw the mark — use
 your own unless you have permission.
 
-`npm run icons` composites the mark onto the design system's navy 1024×1024
-canvas (`#0a0e17`; iOS app icons must be fully opaque for the App Store) and
-writes:
+`npm run icons` derives everything else from that one file:
 
 - `assets/icon.png` — the source of truth for `cap sync`;
 - `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` — the
-  actual App Store / home-screen icon (iOS 10+ uses a single 1024px image,
-  which iOS masks into the rounded-square shape).
+  home-screen / App Store icon (iOS 10+ uses a single 1024px image, which iOS
+  masks into the rounded-square shape);
+- `src/assets/radiant-mark.png` — a 256px copy for the in-app logo: the
+  `BrandMark` component renders it in a rounded tile on the splash, welcome,
+  unlock and home screens;
+- `ios/App/App/Assets.xcassets/Splash.imageset/*` — the launch screen, repainted
+  as the navy canvas with the mark centred (the Capacitor template ships a
+  white image, which flashed the screen white before a dark app appeared).
 
 Compositing is done in Node with `pngjs` (crop to the mark's ink → area-average
-downscale → centre), and the mark sits at **62%** of the canvas so it stays
-comfortably inside Apple's corner-rounding mask. The output's ink bounding box
-is measured and the script **fails if it is outside tolerance**, so the sizing
-is verified rather than assumed:
+downscale → centre). On the app icon the mark sits at **62%** of the canvas so it
+stays comfortably inside Apple's corner-rounding mask; the output's ink bounding
+box is measured and the script **fails if it is outside tolerance**, so the
+sizing is verified rather than assumed:
 
 ```
 OK   1024x1024 ink 0.62 (target 0.62)

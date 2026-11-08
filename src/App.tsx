@@ -15,6 +15,7 @@ import Home from "./screens/Home";
 import Receive from "./screens/Receive";
 import Send from "./screens/Send";
 import Settings from "./screens/Settings";
+import BrandMark from "./components/BrandMark";
 
 /** Lock the wallet automatically after this long in the background. */
 const BACKGROUND_LOCK_MS = 60_000;
@@ -323,7 +324,7 @@ function Splash({ message }: { message?: string }) {
   return (
     <div className="app">
       <div className="splash">
-        <div className="brand-mark">L</div>
+        <BrandMark />
         <div>
           <div style={{ fontWeight: 700, fontSize: 20 }}>Lumen RXD Wallet</div>
           <div style={{ color: "var(--text-faint)", fontSize: 13 }}>

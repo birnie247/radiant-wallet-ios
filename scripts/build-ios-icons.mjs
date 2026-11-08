@@ -58,3 +58,32 @@ if (!ok) {
   console.error("icon ink outside tolerance");
   process.exit(1);
 }
+
+// ---------------------------------------------------------------- in-app logo
+// The mark for the app's own brand tile (splash, welcome, unlock, home). Cut to
+// its ink box and scaled up so it stays crisp at 3x on a 30–64px tile.
+const WEB_INK = 256;
+save("src/assets/radiant-mark.png", resizeArea(mark, WEB_INK, WEB_INK));
+console.log(`in-app mark written to src/assets/radiant-mark.png (${WEB_INK}px, transparent)`);
+
+// ---------------------------------------------------------------- launch screen
+// The Capacitor template ships a white splash image, which flashes the screen
+// white before a dark app appears. Repaint it as the navy canvas with the mark
+// centred, so the launch screen matches the app's first frame.
+const SPLASH = 2732;
+const SPLASH_INK = 0.22;
+const splashInkPx = Math.round(SPLASH * SPLASH_INK);
+const splash = blit(
+  canvas(SPLASH, SPLASH, { bg: BG }),
+  resizeArea(mark, splashInkPx, splashInkPx),
+);
+const splashFiles = [
+  "splash-2732x2732.png",
+  "splash-2732x2732-1.png",
+  "splash-2732x2732-2.png",
+];
+for (const name of splashFiles) {
+  save(`ios/App/App/Assets.xcassets/Splash.imageset/${name}`, splash);
+}
+console.log(`launch screen written to Splash.imageset (${SPLASH}px, ink ${SPLASH_INK})`);
+

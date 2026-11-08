@@ -2,6 +2,7 @@ import { formatRxd, shortId } from "../lib/money";
 import { MAX_TIP_DRIFT } from "../lib/wallet";
 import ActivityList from "../components/ActivityList";
 import { ReceiveIcon, SendIcon } from "../components/Icons";
+import BrandMark from "../components/BrandMark";
 import type { Nav } from "../types";
 
 export default function Home({ nav }: { nav: Nav }) {
@@ -20,9 +21,9 @@ export default function Home({ nav }: { nav: Nav }) {
     <div className="app">
       <div className="topbar">
         <div className="brand">
-          <div className="brand-mark">R</div>
+          <BrandMark />
           <div className="brand-name">
-            Radiant
+            Lumen
             <small>
               {secrets.network === "mainnet" ? "Mainnet" : "Testnet"} · RXD
             </small>
